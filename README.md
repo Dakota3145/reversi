@@ -49,6 +49,6 @@ your algorithm) connect to the server so that they can play games. You shouldnâ€
 Suppose that I wanted to have a human player play against a random player, all running on the same computer. Then I would do the following:
 1. Start the server: `java Reversi 10`
 Note that the parameter 10 specifies the number of minutes that each player has of move throughout the game.
-2. Start player 1 (the Human player in this case): java Human localhost 1 See the files for descriptions of the parameters
-3. Start player 2 (the Random player): java RandomGuy localhost 2 See the files for descriptions of the parameters
+2. Start player 1 (the Human player in this case): `java Human localhost 1` See the files for descriptions of the parameters
+3. Start player 2 (the Random player): `java RandomGuy localhost 2` See the files for descriptions of the parameters
 To run the Python random player instead: python RandomGuy.py localhost 2

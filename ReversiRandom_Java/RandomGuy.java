@@ -90,6 +90,7 @@ class RandomGuy {
                 validMoves[numValidMoves] = 4*8 + 4;
                 numValidMoves ++;
             }
+            System.out.println("Number of valid moves is:" + numValidMoves);
             System.out.println("Valid Moves:");
             for (i = 0; i < numValidMoves; i++) {
                 System.out.println(validMoves[i] / 8 + ", " + validMoves[i] % 8);

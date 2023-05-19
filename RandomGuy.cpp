@@ -9,6 +9,8 @@
 #include <time.h>
 #include <cstring>
 
+using namespace std;
+
 
 // globals
 int turn = -1;
@@ -19,6 +21,7 @@ double t1, t2; // time remaining
 int state[8][8];
 
 int validMoves[64];
+int piecesCaptured[64];
 int numValidMoves;
 
 // variables for server buffer
@@ -176,7 +179,7 @@ void sendMessage(int m) {
     dprintf(sfd, "%d\n%d\n", i, j);
 }
 
-bool checkDirection(int state[8][8], int row, int col, int incx, int incy) {
+int checkDirection(int state[8][8], int row, int col, int incx, int incy) {
     int sequence[7];
     int seqLen;
     int i, r, c;
@@ -200,7 +203,7 @@ bool checkDirection(int state[8][8], int row, int col, int incx, int incy) {
                 count ++;
             else {
                 if ((sequence[i] == 1) && (count > 0))
-                    return true;
+                    return seqLen;
                 break;
             }
         }
@@ -209,29 +212,28 @@ bool checkDirection(int state[8][8], int row, int col, int incx, int incy) {
                 count ++;
             else {
                 if ((sequence[i] == 2) && (count > 0))
-                    return true;
+                    return seqLen;
                 break;
             }
         }
     }
     
-    return false;
+    return 0;
 }
 
 bool couldBe(int state[8][8], int row, int col) {
     int incx, incy;
-    
+    int capturedPieces;
     for (incx = -1; incx < 2; incx++) {
+        capturedPieces = 0;
         for (incy = -1; incy < 2; incy++) {
             if ((incx == 0) && (incy == 0))
                 continue;
-        
-            if (checkDirection(state, row, col, incx, incy))
-                return true;
+            capturedPieces += checkDirection(state, row, col, incx, incy);
         }
     }
     
-    return false;
+    return capturedPieces;
 }
 
 // generates the set of valid moves for the player; returns a list of valid moves (validMoves)
@@ -266,10 +268,16 @@ void getValidMoves(int round_to_play, int state[8][8]) {
         printf("Valid Moves:\n");
         for (i = 0; i < 8; i++) {
             for (j = 0; j < 8; j++) {
+
                 if (state[i][j] == 0) {
-                    if (couldBe(state, i, j)) {
+                    int numOfPiecesCaptured = couldBe(state, i, j);
+                    // cout << numOfPiecesCaptured << endl;
+                    if (numOfPiecesCaptured) {
+
                         validMoves[numValidMoves] = i*8 + j;
+                        cout << "FOUND A VALID MOVE, " << i*8 + j << ", which captures " << numOfPiecesCaptured << " pieces!!!\n";
                         numValidMoves ++;
+                        piecesCaptured[numValidMoves] = numOfPiecesCaptured;
                         printf("%i, %i\n", i, j);
                     }
                 }
@@ -278,13 +286,25 @@ void getValidMoves(int round_to_play, int state[8][8]) {
     }
 }
 
+// int getCoinParity()
+
 // TODO: You should modify this function
 // validMoves is a list of valid locations that you could place your "stone" on this turn
 // Note that "state" is a global variable 2D list that shows the state of the game
 int move() {
     // just move randomly for now
     int myMove = rand() % numValidMoves;
-    
+
+    // for each valid move:
+        // calculate coin parity (how many coins I have vs how many you have)
+        // mobility
+        // corners
+        // stability
+    for (int i = 0; i < numValidMoves; i++) {
+        cout << "Valid move is: " << validMoves[i] << "\n";
+        cout << "This move would capture: " << piecesCaptured[i] << " pieces\n";
+    }
+    sleep(5);
     return myMove;
 }
 
@@ -311,7 +331,7 @@ int main(int argc, char *argv[]) {
         if (turn == player) {
             printf("my move in round_to_play %i\n", round_to_play);
             printf("state is:\n");
-            for (int i = 0; i < 8; i++) {
+            for (int i = 7; i >= 0; i--) {
                 for (int j = 0; j < 8; j++) {
                     printf("%i ", state[i][j]);
                 }
