@@ -180,7 +180,7 @@ void sendMessage(int m) {
 }
 
 int checkDirection(int state[8][8], int row, int col, int incx, int incy) {
-    int sequence[7];
+    int sequence[7] = {-1, -1, -1, -1, -1, -1, -1};
     int seqLen;
     int i, r, c;
     
@@ -203,7 +203,7 @@ int checkDirection(int state[8][8], int row, int col, int incx, int incy) {
                 count ++;
             else {
                 if ((sequence[i] == 1) && (count > 0))
-                    return seqLen;
+                    return count;
                 break;
             }
         }
@@ -212,7 +212,7 @@ int checkDirection(int state[8][8], int row, int col, int incx, int incy) {
                 count ++;
             else {
                 if ((sequence[i] == 2) && (count > 0))
-                    return seqLen;
+                    return count;
                 break;
             }
         }
@@ -221,11 +221,10 @@ int checkDirection(int state[8][8], int row, int col, int incx, int incy) {
     return 0;
 }
 
-bool couldBe(int state[8][8], int row, int col) {
+int couldBe(int state[8][8], int row, int col) {
     int incx, incy;
-    int capturedPieces;
+    int capturedPieces = 0;
     for (incx = -1; incx < 2; incx++) {
-        capturedPieces = 0;
         for (incy = -1; incy < 2; incy++) {
             if ((incx == 0) && (incy == 0))
                 continue;
@@ -239,7 +238,8 @@ bool couldBe(int state[8][8], int row, int col) {
 // generates the set of valid moves for the player; returns a list of valid moves (validMoves)
 void getValidMoves(int round_to_play, int state[8][8]) {
     int i, j;
-    
+    memset(piecesCaptured, 0, sizeof(piecesCaptured));
+    memset(validMoves, 0, sizeof(validMoves));
     numValidMoves = 0;
     if (round_to_play < 4) {
         if (state[3][3] == 0) {
@@ -268,16 +268,14 @@ void getValidMoves(int round_to_play, int state[8][8]) {
         printf("Valid Moves:\n");
         for (i = 0; i < 8; i++) {
             for (j = 0; j < 8; j++) {
-
                 if (state[i][j] == 0) {
                     int numOfPiecesCaptured = couldBe(state, i, j);
                     // cout << numOfPiecesCaptured << endl;
-                    if (numOfPiecesCaptured) {
-
+                    if (numOfPiecesCaptured > 0) {
                         validMoves[numValidMoves] = i*8 + j;
+                        piecesCaptured[numValidMoves] = numOfPiecesCaptured;
                         cout << "FOUND A VALID MOVE, " << i*8 + j << ", which captures " << numOfPiecesCaptured << " pieces!!!\n";
                         numValidMoves ++;
-                        piecesCaptured[numValidMoves] = numOfPiecesCaptured;
                         printf("%i, %i\n", i, j);
                     }
                 }
@@ -300,10 +298,18 @@ int move() {
         // mobility
         // corners
         // stability
+    int highestCaptured = -1;
+    int highestCapturedMove = -1;
     for (int i = 0; i < numValidMoves; i++) {
         cout << "Valid move is: " << validMoves[i] << "\n";
         cout << "This move would capture: " << piecesCaptured[i] << " pieces\n";
+        if (piecesCaptured[i] > highestCaptured) {
+            highestCaptured = piecesCaptured[i];
+            highestCapturedMove = validMoves[i];
+        }
     }
+    cout << "Moving to " << highestCapturedMove << " captures the most pieces at " << 
+        highestCaptured << " pieces\n";
     sleep(5);
     return myMove;
 }
