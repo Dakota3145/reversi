@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <cstring>
+#include <cmath>
 
 using namespace std;
 
@@ -302,7 +303,7 @@ void printState(int myState[8][8]) {
     }
 }
 
-void changeColorOneDirection(int row, int col, int incx, int incy, int player, int (&myState)[8][8]) {
+void changeColorOneDirection(int row, int col, int incx, int incy, int (&myState)[8][8]) {
     int sequence[] = {-1, -1, -1, -1, -1, -1, -1};
     int seqLen;
     int i, r, c;
@@ -367,7 +368,7 @@ void changeColorOneDirection(int row, int col, int incx, int incy, int player, i
     }
 }
 
-void changeColorsAllDirections(int row, int col, int player, int (&myState)[8][8]) {
+void changeColorsAllDirections(int row, int col, int (&myState)[8][8]) {
     int incx, incy;
 
     for (incx = -1; incx < 2; incx++) {
@@ -375,10 +376,12 @@ void changeColorsAllDirections(int row, int col, int player, int (&myState)[8][8
             if ((incx == 0) && (incy == 0))
                 continue;
         
-            changeColorOneDirection(row, col, incx, incy, player, myState);
+            changeColorOneDirection(row, col, incx, incy, myState);
         }
     }
 }
+
+
 
 int heurParity(){
     int opponent = 3 - player;
@@ -417,7 +420,7 @@ int heurEval() {
 // Note that "state" is a global variable 2D list that shows the state of the game
 int move() {
     // just move randomly for now
-    int myMove = rand() % numValidMoves;
+    //int myMove = rand() % numValidMoves;
 
     // for each valid move:
         // calculate coin parity (how many coins I have vs how many you have)
@@ -438,12 +441,14 @@ int move() {
     cout << "heuristic score of board before moving: " << heurScore << "\n";
     cout << "The move to " << highestCapturedMove << " captures the most pieces at " << 
         highestCaptured << " pieces\n";
-    int highestRow = highestCapturedMove % 8;
-    int highestColumn = highestCapturedMove - (highestRow * 8);
+    int myMove = highestCapturedMove;
+    int highestRow = floor(highestCapturedMove / 8);
+    int highestColumn = highestCapturedMove % 8;
     cout << "move will be at row " << highestRow << " and column " << highestColumn << "\n";
     int tempState[8][8];
     copyState(state, tempState);
     tempState[highestRow][highestColumn] = player;
+    changeColorsAllDirections(highestRow, highestColumn, tempState);
     cout << "Temp State\n";
     printState(tempState);
     return myMove;
@@ -455,6 +460,10 @@ int move() {
 //   ipaddress is the ipaddress on the computer the server was launched on.  Enter "localhost" if it is on the same computer
 //   player_number is 1 (for the black player) and 2 (for the white player)
 int main(int argc, char *argv[]) {
+    argc = 3;
+    argv[0] = "./RandomGuy";
+    argv[1] = "localhost";
+    argv[2] = "2";
     if (argc < 3) {
         printf("Not enough parameters\n");
     }
@@ -485,7 +494,7 @@ int main(int argc, char *argv[]) {
 
             // printf("Selection: %i, %i\n", (int)(validMoves[myMove] / 8), validMoves[myMove] % 8);
             
-            sendMessage(validMoves[myMove]);
+            sendMessage(myMove);
         }
         else {
             printf("their move");
