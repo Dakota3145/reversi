@@ -283,6 +283,132 @@ void getValidMoves(int round_to_play, int state[8][8]) {
         }
     }
 }
+void copyState(int ogState[8][8], int (&newState)[8][8]) {
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            newState[i][j] = ogState[i][j];
+        }
+    }
+    return;
+}
+
+void printState(int myState[8][8]) {
+    printf("state is:\n");
+    for (int i = 7; i >= 0; i--) {
+        for (int j = 0; j < 8; j++) {
+            printf("%i ", myState[i][j]);
+        }
+        printf("\n");
+    }
+}
+
+void changeColorOneDirection(int row, int col, int incx, int incy, int player, int (&myState)[8][8]) {
+    int sequence[] = {-1, -1, -1, -1, -1, -1, -1};
+    int seqLen;
+    int i, r, c;
+    
+    seqLen = 0;
+    for (i = 1; i < 8; i++) {
+        r = row+incy*i;
+        c = col+incx*i;
+    
+        if ((r < 0) || (r > 7) || (c < 0) || (c > 7))
+            break;
+    
+        sequence[seqLen] = myState[r][c];
+        seqLen++;
+    }
+    
+    int count = 0;
+    for (i = 0; i < seqLen; i++) {
+        if (player == 1) {
+            if (sequence[i] == 2)
+                count ++;
+            else {
+                if ((sequence[i] == 1) && (count > 0))
+                    count = 20;
+                break;
+            }
+        }
+        else {
+            if (sequence[i] == 1)
+                count ++;
+            else {
+                if ((sequence[i] == 2) && (count > 0))
+                    count = 20;
+                break;
+            }
+        }
+    }
+    
+    if (count > 10) {
+        if (player == 1) {
+            i = 1;
+            r = row+incy*i;
+            c = col+incx*i;
+            while (myState[r][c] == 2) {
+                myState[r][c] = 1;
+                i++;
+                r = row+incy*i;
+                c = col+incx*i;
+            }
+        }
+        else {
+            i = 1;
+            r = row+incy*i;
+            c = col+incx*i;
+            while (myState[r][c] == 1) {
+                myState[r][c] = 2;
+                i++;
+                r = row+incy*i;
+                c = col+incx*i;
+            }
+        }
+    }
+}
+
+void changeColorsAllDirections(int row, int col, int player, int (&myState)[8][8]) {
+    int incx, incy;
+
+    for (incx = -1; incx < 2; incx++) {
+        for (incy = -1; incy < 2; incy++) {
+            if ((incx == 0) && (incy == 0))
+                continue;
+        
+            changeColorOneDirection(row, col, incx, incy, player, myState);
+        }
+    }
+}
+
+int heurParity(){
+    int opponent = 3 - player;
+    int cpuCoins = 0;
+    int oppCoins = 0;
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            if (state[i][j] == player) {
+                cpuCoins += 1;
+            }
+            else if (state[i][j] == opponent) {
+                oppCoins += 1;
+            }
+        }
+    }
+    int parity = cpuCoins - oppCoins;
+    return parity;
+}
+
+int heurEval() {
+    int evalScore = 0;
+    //calc heuristic for coin parity
+    int parityWeight = 1;
+    int parityScore = parityWeight * heurParity();
+    evalScore += parityScore;
+    //calc heuristic for mobility
+    //calc heuristic for corners
+    //calc heuristic for stability
+    return evalScore;
+}
 
 // int getCoinParity()
 
@@ -308,9 +434,18 @@ int move() {
             highestCapturedMove = validMoves[i];
         }
     }
-    cout << "Moving to " << highestCapturedMove << " captures the most pieces at " << 
+    int heurScore = heurEval();
+    cout << "heuristic score of board before moving: " << heurScore << "\n";
+    cout << "The move to " << highestCapturedMove << " captures the most pieces at " << 
         highestCaptured << " pieces\n";
-    sleep(5);
+    int highestRow = highestCapturedMove % 8;
+    int highestColumn = highestCapturedMove - (highestRow * 8);
+    cout << "move will be at row " << highestRow << " and column " << highestColumn << "\n";
+    int tempState[8][8];
+    copyState(state, tempState);
+    tempState[highestRow][highestColumn] = player;
+    cout << "Temp State\n";
+    printState(tempState);
     return myMove;
 }
 
@@ -336,13 +471,14 @@ int main(int argc, char *argv[]) {
         
         if (turn == player) {
             printf("my move in round_to_play %i\n", round_to_play);
-            printf("state is:\n");
-            for (int i = 7; i >= 0; i--) {
-                for (int j = 0; j < 8; j++) {
-                    printf("%i ", state[i][j]);
-                }
-                printf("\n");
-            }
+            printState(state);
+            // printf("state is:\n");
+            // for (int i = 7; i >= 0; i--) {
+            //     for (int j = 0; j < 8; j++) {
+            //         printf("%i ", state[i][j]);
+            //     }
+            //     printf("\n");
+            // }
             getValidMoves(round_to_play, state);
             
             int myMove = move();
