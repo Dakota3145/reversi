@@ -7,11 +7,12 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <time.h>
+#include <cstring>
 
 
 // globals
 int turn = -1;
-int round;
+int round_to_play;
 int player;
 double time_limit = -1;
 double t1, t2; // time remaining
@@ -143,7 +144,7 @@ void readMessage() {
         exit(0);
     }
     
-    round = read_int();
+    round_to_play = read_int();
 
     t1 = read_double();
     t2 = read_double();
@@ -161,7 +162,7 @@ void readMessage() {
 
 
     // printf("Turn: %d\n", turn);
-    // printf("Round: %d\n", round);
+    // printf("Round: %d\n", round_to_play);
     // printf("t1: %f\n", t1);
     // printf("t2: %f\n", t2);
 
@@ -234,11 +235,11 @@ bool couldBe(int state[8][8], int row, int col) {
 }
 
 // generates the set of valid moves for the player; returns a list of valid moves (validMoves)
-void getValidMoves(int round, int state[8][8]) {
+void getValidMoves(int round_to_play, int state[8][8]) {
     int i, j;
     
     numValidMoves = 0;
-    if (round < 4) {
+    if (round_to_play < 4) {
         if (state[3][3] == 0) {
             validMoves[numValidMoves] = 3*8 + 3;
             numValidMoves ++;
@@ -308,7 +309,7 @@ int main(int argc, char *argv[]) {
         readMessage();
         
         if (turn == player) {
-            printf("my move in round %i\n", round);
+            printf("my move in round_to_play %i\n", round_to_play);
             printf("state is:\n");
             for (int i = 0; i < 8; i++) {
                 for (int j = 0; j < 8; j++) {
@@ -316,7 +317,7 @@ int main(int argc, char *argv[]) {
                 }
                 printf("\n");
             }
-            getValidMoves(round, state);
+            getValidMoves(round_to_play, state);
             
             int myMove = move();
 
