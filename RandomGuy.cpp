@@ -428,17 +428,24 @@ int heurEval(int myState[8][8]) {
 }
 
 int pickAlphaBetaRecursive(Node currNode) {
+    //How to implement alpha beta (Without pruning)
+    //1. For each Node (depth first search)
+        //1. If there’s possible moves(non-leaf node) and depth <= 5
+            //1. Call pickAlphaBetaRecursive on this child
+            //2. Get new board state with changeColorsAllDirections
+            //3. Calc heuristic score with heurEval
+        //2. Else no possible move(leaf node)
+            //1. Calc heuristic heurEval and return
+    //2. make an array of all of the children's heuristic scores
+    //3. if depth is odd, get max of children's scores, 
+    //4. else depth is even, get min of children's scores
+    //5. return that max or min score
     int myValidMoves[64];
     int myNumValidMoves;
     int heurScore;
     getValidMoves(round_to_play, currNode.state, myValidMoves, myNumValidMoves);
     if (myNumValidMoves > 0 && currNode.depth <= 4) {
-        //For each Node (depth first search)
-            //1. If there’s possible moves(non-leaf node) and depth <= 5
-                //1. If depth is odd, get max heuristic 
-                //2. else depth is even, get min heuristic
-            //2. Else no possible move(leaf node)
-                //1. Calc heuristic value and return
+
     }
     else {
         heurScore = heurEval(currNode.state);
