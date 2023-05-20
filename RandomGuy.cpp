@@ -9,6 +9,7 @@
 #include <time.h>
 #include <cstring>
 #include <cmath>
+#include <map>
 
 using namespace std;
 
@@ -30,22 +31,29 @@ int sfd;
 const int BLOCK_SIZE = 1024;
 char buf[2 * BLOCK_SIZE];
 int bufstart = 0;
-int bufend = 0;
+int bufend, eval = 0;
+int minEval, maxEval, childMove;
+
 
 class Node {
     public:
         int state[8][8];
         int depth;
-        int heurScore;
-        Node * children[];
-        Node(int myState[8][8], int depth, int heurScore) { // Constructor with parameters
+        int score;
+        int move;
+        Node * expandedChildren[12];
+        Node();
+        Node(int myState[8][8], unsigned int depth, unsigned int move) { // Constructor with parameters
             for (int i = 0; i < 8; i++) {
                 copy(begin(this->state[i]), end(this->state[i]), begin(myState[i]));
             }
             this->depth = depth;
-            this->heurScore = heurScore;
+            this->move = move;
         }
 };
+
+// Node bestMoveSoFar;
+// map<int, int> scoreThatWillMostLikelyBeChosenForAGivenDepth;
 
 char* readline() {
     int i = bufstart;
@@ -515,55 +523,63 @@ int heurEval(int myState[8][8], int currPlayer, int row, int col, int depth = 1)
     return evalScore;
 }
 
-int pickAlphaBetaRecursive(Node currNode) {
-    //How to implement alpha beta pruning
-    //1. For each Node (depth first search)
-        //1. If there’s possible moves(non-leaf node) and depth <= 5
-            //1. If size of prevSiblingScores > 0, depth > 1, and size of childrenScores > 0
-                //1. if depth is odd
-                    //1. Get max of childrenScores
-                    //2. Get min of prevSiblingScores
-                    //3. if max(childrenScores) > min(prevSiblingScores)
-                        //return max(childrenScores)
-                //2. else depth is even
-                    //1. Get min of childrenScores
-                    //2. Get max of prevSiblingScores
-                    //3. if min(childrenScores) < max(prevSiblingScores)
-                        //return min(childrenScores)                   
-            //1. Call pickAlphaBetaRecursive on this child
-            //2. Get new board state with changeColorsAllDirections
-            //3. Calc heuristic score with heurEval
-        //2. Else no possible move(leaf node)
-            //1. Calc heuristic heurEval and return
-    //2. make an array of all of the children's heuristic scores
-    //3. if depth is odd, get max of children's scores, 
-    //4. else depth is even, get min of children's scores
-    //5. return that max or min score
+int minimax(int currentState[8][8], int depth, int alpha, int beta, int maximizingPlayer) {
+    if (depth >= 5) {
+       return calculateHeuristicScoreForState(state);
+    }
     int myValidMoves[64];
-    int myNumValidMoves;
+    int myNumValidMoves = 0;
     int heurScore;
-    //getValidMoves(round_to_play, currNode.state, myValidMoves, myNumValidMoves);
-    if (myNumValidMoves > 0 && currNode.depth <= 4) {
+    getValidMoves(round_to_play, state, myValidMoves, myNumValidMoves);
+    if (myNumValidMoves == 0) {
+       return calculateHeuristicScoreForState(state);
+    }
 
+    if (maximizingPlayer) {
+        maxEval = -INFINITY;
+        for (int i = 0; i < myNumValidMoves; i++) {
+            childMove = myValidMoves[i];
+            int newState[8][8];
+
+            copyState(state, newState);
+            changeColorsAllDirections((int)(childMove / 8), childMove % 8, newState);
+
+            eval = minimax(newState, depth + 1, alpha, beta, false);
+            maxEval = max(maxEval, eval);
+            alpha = max(alpha, eval);
+            if (beta <= alpha) {
+                break;
+            }
+        }
+        return maxEval;
+    } else {
+        minEval = INFINITY;
+        for (int i = 0; i < myNumValidMoves; i++) {
+            childMove = myValidMoves[i];
+            int newState[8][8];
+
+            copyState(state, newState);
+            changeColorsAllDirections((int)(childMove / 8), childMove % 8, newState);
+
+            eval = minimax(newState, depth + 1, alpha, beta, true);
+            minEval = min(minEval, eval);
+            beta = min(beta, eval);
+            if (beta <= alpha) {
+                break;
+            }
+        }
+        return minEval;
     }
-    else {
-        //heurScore = heurEval(currNode.state, myNumValidMoves);
-    }
-    return heurScore;
 }
 
 int pickAlphaBetaMove() {
-    int alphaBetaMove = validMoves[0];
-    if (sizeof(validMoves) > 1) {
-        //int heurScore = heurEval(state, numValidMoves);
-        //Node root(state, 1, heurScore);
-        //recursively call pickAlphaBetaRecursive()
+    if (numValidMoves > 1) {
+        int previousSiblingScores[0];
+        minimax(state, 0, -INFINITY, INFINITY, true);
+    } else {
+        return validMoves[0];
     }
-    return alphaBetaMove;
 }
-
-
-// int getCoinParity()
 
 // TODO: You should modify this function
 // validMoves is a list of valid locations that you could place your "stone" on this turn
