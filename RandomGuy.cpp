@@ -32,6 +32,20 @@ char buf[2 * BLOCK_SIZE];
 int bufstart = 0;
 int bufend = 0;
 
+class Node {
+    public:
+        int state[8][8];
+        int depth;
+        int heurScore;
+        Node * children[];
+        Node(int myState[8][8], int depth, int heurScore) { // Constructor with parameters
+            for (int i = 0; i < 8; i++) {
+                copy(begin(this->state[i]), end(this->state[i]), begin(myState[i]));
+            }
+            this->depth = depth;
+            this->heurScore = heurScore;
+        }
+};
 
 char* readline() {
     int i = bufstart;
@@ -413,6 +427,18 @@ int heurEval() {
     return evalScore;
 }
 
+
+int pickAlphaBetaMove() {
+    int alphaBetaMove = validMoves[0];
+    if (sizeof(validMoves) > 1) {
+        int heurScore = heurEval();
+        Node root(state, 1, heurScore);
+
+    }
+    return alphaBetaMove;
+}
+
+
 // int getCoinParity()
 
 // TODO: You should modify this function
@@ -421,6 +447,7 @@ int heurEval() {
 int move() {
     // just move randomly for now
     //int myMove = rand() % numValidMoves;
+
 
     // for each valid move:
         // calculate coin parity (how many coins I have vs how many you have)
