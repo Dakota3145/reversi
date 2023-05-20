@@ -251,31 +251,31 @@ int couldBe(int state[8][8], int row, int col) {
 }
 
 // generates the set of valid moves for the player; returns a list of valid moves (validMoves)
-void getValidMoves(int round_to_play, int state[8][8]) {
+void getValidMoves(int round_to_play, int state[8][8], int (&myValidMoves)[64], int myNumValidMoves) {
     int i, j;
     memset(piecesCaptured, 0, sizeof(piecesCaptured));
-    memset(validMoves, 0, sizeof(validMoves));
-    numValidMoves = 0;
+    memset(myValidMoves, 0, sizeof(myValidMoves));
+    myNumValidMoves = 0;
     if (round_to_play < 4) {
         if (state[3][3] == 0) {
-            validMoves[numValidMoves] = 3*8 + 3;
-            numValidMoves ++;
+            myValidMoves[myNumValidMoves] = 3*8 + 3;
+            myNumValidMoves ++;
         }
         if (state[3][4] == 0) {
-            validMoves[numValidMoves] = 3*8 + 4;
-            numValidMoves ++;
+            myValidMoves[myNumValidMoves] = 3*8 + 4;
+            myNumValidMoves ++;
         }
         if (state[4][3] == 0) {
-            validMoves[numValidMoves] = 4*8 + 3;
-            numValidMoves ++;
+            myValidMoves[myNumValidMoves] = 4*8 + 3;
+            myNumValidMoves ++;
         }
         if (state[4][4] == 0) {
-            validMoves[numValidMoves] = 4*8 + 4;
-            numValidMoves ++;
+            myValidMoves[myNumValidMoves] = 4*8 + 4;
+            myNumValidMoves ++;
         }
         printf("Valid Moves:\n");
-        for (i = 0; i < numValidMoves; i++) {
-            printf("%i, %i\n", (int)(validMoves[i] / 8), validMoves[i] % 8);
+        for (i = 0; i < myNumValidMoves; i++) {
+            printf("%i, %i\n", (int)(myValidMoves[i] / 8), myValidMoves[i] % 8);
         }
         printf("\n");
     }
@@ -287,10 +287,10 @@ void getValidMoves(int round_to_play, int state[8][8]) {
                     int numOfPiecesCaptured = couldBe(state, i, j);
                     // cout << numOfPiecesCaptured << endl;
                     if (numOfPiecesCaptured > 0) {
-                        validMoves[numValidMoves] = i*8 + j;
-                        piecesCaptured[numValidMoves] = numOfPiecesCaptured;
+                        myValidMoves[myNumValidMoves] = i*8 + j;
+                        piecesCaptured[myNumValidMoves] = numOfPiecesCaptured;
                         cout << "FOUND A VALID MOVE, " << i*8 + j << ", which captures " << numOfPiecesCaptured << " pieces!!!\n";
-                        numValidMoves ++;
+                        myNumValidMoves ++;
                         printf("%i, %i\n", i, j);
                     }
                 }
@@ -397,16 +397,16 @@ void changeColorsAllDirections(int row, int col, int (&myState)[8][8]) {
 
 
 
-int heurParity(){
+int heurParity(int myState[8][8]){
     int opponent = 3 - player;
     int cpuCoins = 0;
     int oppCoins = 0;
     for (int i = 0; i < 8; i++) {
         for (int j = 0; j < 8; j++) {
-            if (state[i][j] == player) {
+            if (myState[i][j] == player) {
                 cpuCoins += 1;
             }
-            else if (state[i][j] == opponent) {
+            else if (myState[i][j] == opponent) {
                 oppCoins += 1;
             }
         }
@@ -415,11 +415,11 @@ int heurParity(){
     return parity;
 }
 
-int heurEval() {
+int heurEval(int myState[8][8]) {
     int evalScore = 0;
     //calc heuristic for coin parity
     int parityWeight = 1;
-    int parityScore = parityWeight * heurParity();
+    int parityScore = parityWeight * heurParity(myState);
     evalScore += parityScore;
     //calc heuristic for mobility
     //calc heuristic for corners
@@ -427,13 +427,31 @@ int heurEval() {
     return evalScore;
 }
 
+int pickAlphaBetaRecursive(Node currNode) {
+    int myValidMoves[64];
+    int myNumValidMoves;
+    int heurScore;
+    getValidMoves(round_to_play, currNode.state, myValidMoves, myNumValidMoves);
+    if (myNumValidMoves > 0 && currNode.depth <= 4) {
+        //For each Node (depth first search)
+            //1. If there’s possible moves(non-leaf node) and depth <= 5
+                //1. If depth is odd, get max heuristic 
+                //2. else depth is even, get min heuristic
+            //2. Else no possible move(leaf node)
+                //1. Calc heuristic value and return
+    }
+    else {
+        heurScore = heurEval(currNode.state);
+    }
+    return heurScore;
+}
 
 int pickAlphaBetaMove() {
     int alphaBetaMove = validMoves[0];
     if (sizeof(validMoves) > 1) {
-        int heurScore = heurEval();
+        int heurScore = heurEval(state);
         Node root(state, 1, heurScore);
-
+        //recursively call pickAlphaBetaRecursive()
     }
     return alphaBetaMove;
 }
@@ -464,7 +482,7 @@ int move() {
             highestCapturedMove = validMoves[i];
         }
     }
-    int heurScore = heurEval();
+    int heurScore = heurEval(state);
     cout << "heuristic score of board before moving: " << heurScore << "\n";
     cout << "The move to " << highestCapturedMove << " captures the most pieces at " << 
         highestCaptured << " pieces\n";
@@ -487,10 +505,10 @@ int move() {
 //   ipaddress is the ipaddress on the computer the server was launched on.  Enter "localhost" if it is on the same computer
 //   player_number is 1 (for the black player) and 2 (for the white player)
 int main(int argc, char *argv[]) {
-    argc = 3;
-    argv[0] = "./RandomGuy";
-    argv[1] = "localhost";
-    argv[2] = "2";
+    // argc = 3;
+    // argv[0] = "./RandomGuy";
+    // argv[1] = "localhost";
+    // argv[2] = "2";
     if (argc < 3) {
         printf("Not enough parameters\n");
     }
@@ -515,7 +533,7 @@ int main(int argc, char *argv[]) {
             //     }
             //     printf("\n");
             // }
-            getValidMoves(round_to_play, state);
+            getValidMoves(round_to_play, state, validMoves, numValidMoves);
             
             int myMove = move();
 
