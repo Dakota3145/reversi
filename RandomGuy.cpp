@@ -194,7 +194,7 @@ void sendMessage(int m) {
     dprintf(sfd, "%d\n%d\n", i, j);
 }
 
-int checkDirection(int state[8][8], int row, int col, int incx, int incy) {
+int checkDirection(int state[8][8], int row, int col, int incx, int incy, int playerNum) {
     int sequence[7] = {-1, -1, -1, -1, -1, -1, -1};
     int seqLen;
     int i, r, c;
@@ -213,7 +213,7 @@ int checkDirection(int state[8][8], int row, int col, int incx, int incy) {
     
     int count = 0;
     for (i = 0; i < seqLen; i++) {
-        if (player == 1) {
+        if (playerNum == 1) {
             if (sequence[i] == 2)
                 count ++;
             else {
@@ -236,14 +236,14 @@ int checkDirection(int state[8][8], int row, int col, int incx, int incy) {
     return 0;
 }
 
-int couldBe(int state[8][8], int row, int col) {
+int couldBe(int state[8][8], int row, int col, int playerNum) {
     int incx, incy;
     int capturedPieces = 0;
     for (incx = -1; incx < 2; incx++) {
         for (incy = -1; incy < 2; incy++) {
             if ((incx == 0) && (incy == 0))
                 continue;
-            capturedPieces += checkDirection(state, row, col, incx, incy);
+            capturedPieces += checkDirection(state, row, col, incx, incy, playerNum);
         }
     }
     
@@ -251,7 +251,7 @@ int couldBe(int state[8][8], int row, int col) {
 }
 
 // generates the set of valid moves for the player; returns a list of valid moves (validMoves)
-void getValidMoves(int round_to_play, int state[8][8], int (&myValidMoves)[64], int myNumValidMoves) {
+void getValidMoves(int round_to_play, int state[8][8], int (&myValidMoves)[64], int &myNumValidMoves, int playerNum) {
     int i, j;
     memset(piecesCaptured, 0, sizeof(piecesCaptured));
     memset(myValidMoves, 0, sizeof(myValidMoves));
@@ -284,7 +284,7 @@ void getValidMoves(int round_to_play, int state[8][8], int (&myValidMoves)[64], 
         for (i = 0; i < 8; i++) {
             for (j = 0; j < 8; j++) {
                 if (state[i][j] == 0) {
-                    int numOfPiecesCaptured = couldBe(state, i, j);
+                    int numOfPiecesCaptured = couldBe(state, i, j, playerNum);
                     // cout << numOfPiecesCaptured << endl;
                     if (numOfPiecesCaptured > 0) {
                         myValidMoves[myNumValidMoves] = i*8 + j;
@@ -397,13 +397,13 @@ void changeColorsAllDirections(int row, int col, int (&myState)[8][8]) {
 
 
 
-int heurParity(int myState[8][8]){
-    int opponent = 3 - player;
+int heurParity(int myState[8][8], int currPlayer){
+    int opponent = 3 - currPlayer;
     int cpuCoins = 0;
     int oppCoins = 0;
     for (int i = 0; i < 8; i++) {
         for (int j = 0; j < 8; j++) {
-            if (myState[i][j] == player) {
+            if (myState[i][j] == currPlayer) {
                 cpuCoins += 1;
             }
             else if (myState[i][j] == opponent) {
@@ -415,19 +415,107 @@ int heurParity(int myState[8][8]){
     return parity;
 }
 
-int heurEval(int myState[8][8]) {
+int heurMobility(int myState[8][8], int currPlayer, int depth = 1) {
+    int myValidMoves[64];
+    int myNumValidMoves;
+    int currRound = round_to_play + (depth - 1);
+    getValidMoves(currRound, myState, myValidMoves, myNumValidMoves, currPlayer);
+    int oppPlayer = 3 - currPlayer;
+    int oppValidMoves[64];
+    int oppNumValidMoves;
+    getValidMoves(currRound, myState, oppValidMoves, oppNumValidMoves, oppPlayer);
+    int mobility = myNumValidMoves - oppNumValidMoves;
+    return mobility;
+}
+
+int heurCorners(int myState[8][8], int currPlayer) {
+    int corners[4];
+    corners[0] = myState[0][0];
+    corners[1] = myState[0][7];
+    corners[2] = myState[7][0];
+    corners[3] = myState[7][7];
+    int oppPlayer = 3 - currPlayer;
+    int myCorners = 0;
+    int oppCorners = 0;
+    for (int i = 0; i < 4; i++) {
+        if (corners[i] == currPlayer) {
+            myCorners += 1;
+        }
+        else if (corners[i] == oppPlayer) {
+            oppCorners += 1;
+        }
+    }
+    int parity = myCorners - oppCorners;
+    return parity;
+}
+
+int heurStability(int myState[8][8], int row, int col, int currPlayer) {
+    int stability = 0;
+    if (row == 0 || row == 7 || col == 0 || col == 7) {
+        if ((row == 0 && col == 0) || 
+            (row == 0 && col == 7) ||
+            (row == 7 && col == 0) ||
+            (row == 7 && col == 7)) {
+                stability = 3;
+            }
+        else {
+            int rows[2] = {0, 7};
+            int cols[2] = {0, 7};
+            int rowDist;
+            int colDist;
+            int totalDist;
+            for (int i = 0; i < 2; i++) {
+                for (int j = 0; j < 2; j++) {
+                    if (myState[rows[i]][cols[j]] == currPlayer) {
+                        rowDist = abs(rows[i] - row);
+                        colDist = abs(cols[j] - col);
+                        totalDist = rowDist + colDist;
+                        if (totalDist == 1) {
+                            stability = 2;
+                            return stability;
+                        }
+                    }
+                }
+            }
+            stability = 1;
+        }
+    }
+    else {
+        stability = 0;
+    }
+    return stability;
+}
+
+int heurEval(int myState[8][8], int currPlayer, int row, int col, int depth = 1) {
     int evalScore = 0;
     //calc heuristic for coin parity
     int parityWeight = 1;
-    int parityScore = parityWeight * heurParity(myState);
+    int parityScore = parityWeight * heurParity(myState, currPlayer);
     evalScore += parityScore;
-    //calc heuristic for mobility
-    //calc heuristic for corners
-    //calc heuristic for stability
+
+    //calc heuristic for mobility (how many moves you can make vs how many they can make)
+    int mobilityWeight = 1;
+    int mobilityScore = mobilityWeight * heurMobility(myState, currPlayer, depth);
+    evalScore += mobilityScore;
+
+    //calc heuristic for corners (how many corners you have vs how many they have)
+    int cornerWeight = 1;
+    int cornerScore = cornerWeight * heurCorners(myState, currPlayer);
+    evalScore += cornerScore;
+
+    //calc heuristic for stability (how likely the move is to not get captured. 
+        //0 - middle pieces, 1 - edge piece, 2 - edge piece next to our corner piece, 3 - corner)
+    int stabilityWeight = 1;
+    int stabilityScore = stabilityWeight * heurStability(myState, row, col, currPlayer);
+    evalScore += stabilityScore;
+    cout << "Parity Score: " << parityScore << "\n" << 
+            "Mobility Score: " << mobilityScore << "\n" <<
+            "Corner Score: " << cornerScore << "\n" <<
+            "Stability Score: " << stabilityScore << "\n";
     return evalScore;
 }
 
-int pickAlphaBetaRecursive(Node currNode, int prevSiblingScores[] = {}) {
+int pickAlphaBetaRecursive(Node currNode) {
     //How to implement alpha beta pruning
     //1. For each Node (depth first search)
         //1. If there’s possible moves(non-leaf node) and depth <= 5
@@ -454,12 +542,12 @@ int pickAlphaBetaRecursive(Node currNode, int prevSiblingScores[] = {}) {
     int myValidMoves[64];
     int myNumValidMoves;
     int heurScore;
-    getValidMoves(round_to_play, currNode.state, myValidMoves, myNumValidMoves);
+    //getValidMoves(round_to_play, currNode.state, myValidMoves, myNumValidMoves);
     if (myNumValidMoves > 0 && currNode.depth <= 4) {
 
     }
     else {
-        heurScore = heurEval(currNode.state);
+        //heurScore = heurEval(currNode.state, myNumValidMoves);
     }
     return heurScore;
 }
@@ -467,8 +555,8 @@ int pickAlphaBetaRecursive(Node currNode, int prevSiblingScores[] = {}) {
 int pickAlphaBetaMove() {
     int alphaBetaMove = validMoves[0];
     if (sizeof(validMoves) > 1) {
-        int heurScore = heurEval(state);
-        Node root(state, 1, heurScore);
+        //int heurScore = heurEval(state, numValidMoves);
+        //Node root(state, 1, heurScore);
         //recursively call pickAlphaBetaRecursive()
     }
     return alphaBetaMove;
@@ -500,20 +588,21 @@ int move() {
             highestCapturedMove = validMoves[i];
         }
     }
-    int heurScore = heurEval(state);
-    cout << "heuristic score of board before moving: " << heurScore << "\n";
+
     cout << "The move to " << highestCapturedMove << " captures the most pieces at " << 
         highestCaptured << " pieces\n";
     int myMove = highestCapturedMove;
     int highestRow = floor(highestCapturedMove / 8);
-    int highestColumn = highestCapturedMove % 8;
-    cout << "move will be at row " << highestRow << " and column " << highestColumn << "\n";
+    int highestCol = highestCapturedMove % 8;
+    cout << "move will be at row " << highestRow << " and column " << highestCol << "\n";
     int tempState[8][8];
     copyState(state, tempState);
-    tempState[highestRow][highestColumn] = player;
-    changeColorsAllDirections(highestRow, highestColumn, tempState);
+    tempState[highestRow][highestCol] = player;
+    changeColorsAllDirections(highestRow, highestCol, tempState);
     cout << "Temp State\n";
     printState(tempState);
+    int heurScore = heurEval(tempState, player, highestRow, highestCol);
+    cout << "heuristic score of board after moving: " << heurScore << "\n";
     return myMove;
 }
 
@@ -551,7 +640,7 @@ int main(int argc, char *argv[]) {
             //     }
             //     printf("\n");
             // }
-            getValidMoves(round_to_play, state, validMoves, numValidMoves);
+            getValidMoves(round_to_play, state, validMoves, numValidMoves, player);
             
             int myMove = move();
 
