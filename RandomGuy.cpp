@@ -409,31 +409,30 @@ void changeColorsAllDirections(int row, int col, int (&myState)[8][8]) {
 
 int heurParity(int myState[8][8], int currPlayer){
     int opponent = 3 - currPlayer;
-    int cpuCoins = 0;
+    int myCoins = 0;
     int oppCoins = 0;
     for (int i = 0; i < 8; i++) {
         for (int j = 0; j < 8; j++) {
             if (myState[i][j] == currPlayer) {
-                cpuCoins += 1;
+                myCoins += 1;
             }
             else if (myState[i][j] == opponent) {
                 oppCoins += 1;
             }
         }
     }
-    int parity = cpuCoins - oppCoins;
+    int parity = myCoins - oppCoins;
     return parity;
 }
 
 int heurMobility(int myState[8][8], int currPlayer, int depth = 1) {
     int myValidMoves[64];
     int myNumValidMoves;
-    int currRound = round_to_play + (depth - 1);
-    getValidMoves(currRound, myState, myValidMoves, myNumValidMoves, currPlayer);
+    getValidMoves(round_to_play + depth, myState, myValidMoves, myNumValidMoves, currPlayer);
     int oppPlayer = 3 - currPlayer;
     int oppValidMoves[64];
     int oppNumValidMoves;
-    getValidMoves(currRound, myState, oppValidMoves, oppNumValidMoves, oppPlayer);
+    getValidMoves(round_to_play + depth, myState, oppValidMoves, oppNumValidMoves, oppPlayer);
     int mobility = myNumValidMoves - oppNumValidMoves;
     return mobility;
 }
@@ -515,7 +514,7 @@ int heurEval(int myState[8][8], int currPlayer, int row, int col, int depth = 1)
 
     //calc heuristic for stability (how likely the move is to not get captured. 
         //0 - middle pieces, 1 - edge piece, 2 - edge piece next to our corner piece, 3 - corner)
-    if (row >= 0){
+    if (row >= 0){ // only calculate for potential moves, not for a static analysis
         int stabilityWeight = 1;
         int stabilityScore = stabilityWeight * heurStability(myState, row, col, currPlayer);
         evalScore += stabilityScore;
@@ -526,28 +525,27 @@ int heurEval(int myState[8][8], int currPlayer, int row, int col, int depth = 1)
     //         "Corner Score: " << cornerScore << "\n" 
             // << "Stability Score: " << stabilityScore << "\n"
             // ;
+    cout << "I am player " << currPlayer << ", current score for the following state is: " << evalScore << endl;
+    printState(myState);
+    cout << endl << endl;
+    sleep(15);
     return evalScore;
 }
 
 int minimax(int currentState[8][8], int depth, int alpha, int beta, int maximizingPlayer, int (&scoresByIndex)[15]) {
-    // sleep(3);
-    if (depth >= 2) {
-        // cout << "Hit end of depth. Returning!!!!!!!!!!!!" << endl;
+    if (depth >= 5) { // Hit end of depth. Returning
         return heurEval(currentState, maximizingPlayer ? player : opponent, -1, -1);
     }
     int myValidMoves[64];
     int myNumValidMoves = 0;
     getValidMoves(round_to_play + depth, currentState, myValidMoves, myNumValidMoves, maximizingPlayer ? player : opponent);
-    if (myNumValidMoves == 0) {
-        // cout << "No moves available. Returning!!!!!!!!!!!!" << myNumValidMoves << endl;
+    if (myNumValidMoves == 0) { // No moves available. Returning
         return heurEval(currentState, maximizingPlayer ? player : opponent, -1, -1);
     }
 
     if (maximizingPlayer) {
-        // cout << "At depth " << depth << ", it is maximizing player =========================================" << endl;
         maxEval = (int)-INFINITY;
         for (int i = 0; i < myNumValidMoves; i++) {
-            // sleep(5);
             childMove = myValidMoves[i];
             int newState[8][8];
 
@@ -555,63 +553,51 @@ int minimax(int currentState[8][8], int depth, int alpha, int beta, int maximizi
             copyState(currentState, newState);
             newState[(int)(childMove / 8)][childMove % 8] = player;
             changeColorsAllDirections((int)(childMove / 8), childMove % 8, newState);
-            // cout << "childMove for maximizing player is " << childMove << ", or " << (int)(childMove / 8) << ", " << childMove % 8 << "Therefore, newState: " << endl;   
-            // printState(newState);
             eval = minimax(newState, depth + 1, alpha, beta, false, scoresByIndex);
             maxEval = max(maxEval, eval);
-            if (depth == 0) {
-                // cout << "Saving final eval. Index is " << i << "and value is " << eval << endl;
+            if (depth == 0) { // save final eval for comparison and selection
                 scoresByIndex[i] = eval;
             }
             alpha = max(alpha, eval);
-            if (beta <= alpha) {
-                // cout << "Pruned" << endl;
+            if (beta <= alpha) { // prune
                 break;
             }
         }
         if (depth == 0) {
-            // cout << "FINDING OPTIMAL MOVES from the lot:" << endl;
-            // for (int i = 0; i < myNumValidMoves; i++) {
-            //     cout << myValidMoves[i] << endl;
-            // }
-            // cout << endl;
-            // sleep(3);
-            // for (int i = 0; i < myNumValidMoves; i++) {
-            //     cout <<  i << " --> " << scoresByIndex[i] << endl;
-            // }
+            cout << "FINDING OPTIMAL MOVES from the lot:" << endl;
+            for (int i = 0; i < myNumValidMoves; i++) {
+                cout << myValidMoves[i] << endl;
+            }
+            cout << endl;
+            for (int i = 0; i < myNumValidMoves; i++) {
+                cout <<  i << " --> " << scoresByIndex[i] << endl;
+            }
             int maxKey = 0;    // Initialize the variable to store the key of the maximum value
             int maxValue = -(int)INFINITY;  // Initialize the variable to store the maximum value
             for (int i = 0; i < myNumValidMoves; i++) {
                 if (scoresByIndex[i] > maxValue) {
-                    // cout << i << " is the winning index now" << endl;
                     maxKey = i;
                     maxValue = scoresByIndex[i];
                 }
             }
             
-            // cout << "TRYING TO RETURN: " << myValidMoves[maxKey] << endl;
             return myValidMoves[maxKey];
         } else {
             return maxEval;
         }
     } else {
-        // cout << "At depth " << depth << ", it is minimizing player =========================================" << endl;
         minEval = (int)INFINITY;
         for (int i = 0; i < myNumValidMoves; i++) {
-            // sleep(2);
             childMove = myValidMoves[i];
             int newState[8][8];
 
             copyState(currentState, newState);
             newState[(int)(childMove / 8)][childMove % 8] = opponent;
             changeColorsAllDirections((int)(childMove / 8), childMove % 8, newState);
-            // cout << "childMove for minimizing player is " << childMove << ", or " << (int)(childMove / 8) << ", " << childMove % 8 << ". Therefore, newState: " << endl;   
-            // printState(newState);
             eval = minimax(newState, depth + 1, alpha, beta, true, scoresByIndex);
             minEval = min(minEval, eval);
             beta = min(beta, eval);
-            if (beta <= alpha) {
-                // cout << "Pruned" << endl;
+            if (beta <= alpha) { // prune
                 break;
             }
         }
@@ -619,9 +605,6 @@ int minimax(int currentState[8][8], int depth, int alpha, int beta, int maximizi
     }
 }
 
-// TODO: You should modify this function
-// validMoves is a list of valid locations that you could place your "stone" on this turn
-// Note that "state" is a global variable 2D list that shows the state of the game
 int move() {
     
     int scoresByIndex[15];
@@ -670,9 +653,6 @@ int main(int argc, char *argv[]) {
             // getValidMoves(round_to_play, state, validMoves, numValidMoves, player);
             
             int myMove = move();
-
-            // printf("Selection: %i, %i\n", (int)(validMoves[myMove] / 8), validMoves[myMove] % 8);
-            
             sendMessage(myMove);
         }
         else {
