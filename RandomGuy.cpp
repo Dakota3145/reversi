@@ -18,6 +18,7 @@ using namespace std;
 int turn = -1;
 int round_to_play;
 int player;
+int opponent;
 double time_limit = -1;
 double t1, t2; // time remaining
 int state[8][8];
@@ -33,6 +34,7 @@ char buf[2 * BLOCK_SIZE];
 int bufstart = 0;
 int bufend, eval = 0;
 int minEval, maxEval, childMove;
+
 
 
 class Node {
@@ -513,58 +515,103 @@ int heurEval(int myState[8][8], int currPlayer, int row, int col, int depth = 1)
 
     //calc heuristic for stability (how likely the move is to not get captured. 
         //0 - middle pieces, 1 - edge piece, 2 - edge piece next to our corner piece, 3 - corner)
-    int stabilityWeight = 1;
-    int stabilityScore = stabilityWeight * heurStability(myState, row, col, currPlayer);
-    evalScore += stabilityScore;
-    cout << "Parity Score: " << parityScore << "\n" << 
-            "Mobility Score: " << mobilityScore << "\n" <<
-            "Corner Score: " << cornerScore << "\n" <<
-            "Stability Score: " << stabilityScore << "\n";
+    if (row >= 0){
+        int stabilityWeight = 1;
+        int stabilityScore = stabilityWeight * heurStability(myState, row, col, currPlayer);
+        evalScore += stabilityScore;
+
+    }
+    // cout << "Parity Score: " << parityScore << "\n" << 
+    //         "Mobility Score: " << mobilityScore << "\n" <<
+    //         "Corner Score: " << cornerScore << "\n" 
+            // << "Stability Score: " << stabilityScore << "\n"
+            // ;
     return evalScore;
 }
 
-int minimax(int currentState[8][8], int depth, int alpha, int beta, int maximizingPlayer) {
-    if (depth >= 5) {
-       return calculateHeuristicScoreForState(state);
+int minimax(int currentState[8][8], int depth, int alpha, int beta, int maximizingPlayer, int (&scoresByIndex)[15]) {
+    // sleep(3);
+    if (depth >= 2) {
+        // cout << "Hit end of depth. Returning!!!!!!!!!!!!" << endl;
+        return heurEval(currentState, maximizingPlayer ? player : opponent, -1, -1);
     }
     int myValidMoves[64];
     int myNumValidMoves = 0;
-    int heurScore;
-    getValidMoves(round_to_play, state, myValidMoves, myNumValidMoves);
+    getValidMoves(round_to_play + depth, currentState, myValidMoves, myNumValidMoves, maximizingPlayer ? player : opponent);
     if (myNumValidMoves == 0) {
-       return calculateHeuristicScoreForState(state);
+        // cout << "No moves available. Returning!!!!!!!!!!!!" << myNumValidMoves << endl;
+        return heurEval(currentState, maximizingPlayer ? player : opponent, -1, -1);
     }
 
     if (maximizingPlayer) {
-        maxEval = -INFINITY;
+        // cout << "At depth " << depth << ", it is maximizing player =========================================" << endl;
+        maxEval = (int)-INFINITY;
         for (int i = 0; i < myNumValidMoves; i++) {
+            // sleep(5);
             childMove = myValidMoves[i];
             int newState[8][8];
 
-            copyState(state, newState);
-            changeColorsAllDirections((int)(childMove / 8), childMove % 8, newState);
 
-            eval = minimax(newState, depth + 1, alpha, beta, false);
+            copyState(currentState, newState);
+            newState[(int)(childMove / 8)][childMove % 8] = player;
+            changeColorsAllDirections((int)(childMove / 8), childMove % 8, newState);
+            // cout << "childMove for maximizing player is " << childMove << ", or " << (int)(childMove / 8) << ", " << childMove % 8 << "Therefore, newState: " << endl;   
+            // printState(newState);
+            eval = minimax(newState, depth + 1, alpha, beta, false, scoresByIndex);
             maxEval = max(maxEval, eval);
+            if (depth == 0) {
+                // cout << "Saving final eval. Index is " << i << "and value is " << eval << endl;
+                scoresByIndex[i] = eval;
+            }
             alpha = max(alpha, eval);
             if (beta <= alpha) {
+                // cout << "Pruned" << endl;
                 break;
             }
         }
-        return maxEval;
+        if (depth == 0) {
+            // cout << "FINDING OPTIMAL MOVES from the lot:" << endl;
+            // for (int i = 0; i < myNumValidMoves; i++) {
+            //     cout << myValidMoves[i] << endl;
+            // }
+            // cout << endl;
+            // sleep(3);
+            // for (int i = 0; i < myNumValidMoves; i++) {
+            //     cout <<  i << " --> " << scoresByIndex[i] << endl;
+            // }
+            int maxKey = 0;    // Initialize the variable to store the key of the maximum value
+            int maxValue = -(int)INFINITY;  // Initialize the variable to store the maximum value
+            for (int i = 0; i < myNumValidMoves; i++) {
+                if (scoresByIndex[i] > maxValue) {
+                    // cout << i << " is the winning index now" << endl;
+                    maxKey = i;
+                    maxValue = scoresByIndex[i];
+                }
+            }
+            
+            // cout << "TRYING TO RETURN: " << myValidMoves[maxKey] << endl;
+            return myValidMoves[maxKey];
+        } else {
+            return maxEval;
+        }
     } else {
-        minEval = INFINITY;
+        // cout << "At depth " << depth << ", it is minimizing player =========================================" << endl;
+        minEval = (int)INFINITY;
         for (int i = 0; i < myNumValidMoves; i++) {
+            // sleep(2);
             childMove = myValidMoves[i];
             int newState[8][8];
 
-            copyState(state, newState);
+            copyState(currentState, newState);
+            newState[(int)(childMove / 8)][childMove % 8] = opponent;
             changeColorsAllDirections((int)(childMove / 8), childMove % 8, newState);
-
-            eval = minimax(newState, depth + 1, alpha, beta, true);
+            // cout << "childMove for minimizing player is " << childMove << ", or " << (int)(childMove / 8) << ", " << childMove % 8 << ". Therefore, newState: " << endl;   
+            // printState(newState);
+            eval = minimax(newState, depth + 1, alpha, beta, true, scoresByIndex);
             minEval = min(minEval, eval);
             beta = min(beta, eval);
             if (beta <= alpha) {
+                // cout << "Pruned" << endl;
                 break;
             }
         }
@@ -572,54 +619,13 @@ int minimax(int currentState[8][8], int depth, int alpha, int beta, int maximizi
     }
 }
 
-int pickAlphaBetaMove() {
-    if (numValidMoves > 1) {
-        int previousSiblingScores[0];
-        minimax(state, 0, -INFINITY, INFINITY, true);
-    } else {
-        return validMoves[0];
-    }
-}
-
 // TODO: You should modify this function
 // validMoves is a list of valid locations that you could place your "stone" on this turn
 // Note that "state" is a global variable 2D list that shows the state of the game
 int move() {
-    // just move randomly for now
-    //int myMove = rand() % numValidMoves;
-
-
-    // for each valid move:
-        // calculate coin parity (how many coins I have vs how many you have)
-        // mobility
-        // corners
-        // stability
-    int highestCaptured = -1;
-    int highestCapturedMove = -1;
-    for (int i = 0; i < numValidMoves; i++) {
-        cout << "Valid move is: " << validMoves[i] << "\n";
-        cout << "This move would capture: " << piecesCaptured[i] << " pieces\n";
-        if (piecesCaptured[i] > highestCaptured) {
-            highestCaptured = piecesCaptured[i];
-            highestCapturedMove = validMoves[i];
-        }
-    }
-
-    cout << "The move to " << highestCapturedMove << " captures the most pieces at " << 
-        highestCaptured << " pieces\n";
-    int myMove = highestCapturedMove;
-    int highestRow = floor(highestCapturedMove / 8);
-    int highestCol = highestCapturedMove % 8;
-    cout << "move will be at row " << highestRow << " and column " << highestCol << "\n";
-    int tempState[8][8];
-    copyState(state, tempState);
-    tempState[highestRow][highestCol] = player;
-    changeColorsAllDirections(highestRow, highestCol, tempState);
-    cout << "Temp State\n";
-    printState(tempState);
-    int heurScore = heurEval(tempState, player, highestRow, highestCol);
-    cout << "heuristic score of board after moving: " << heurScore << "\n";
-    return myMove;
+    
+    int scoresByIndex[15];
+    return minimax(state, 0, (int)-INFINITY, (int)INFINITY, true, scoresByIndex);
 }
 
 
@@ -639,6 +645,11 @@ int main(int argc, char *argv[]) {
     srand(time(NULL));
 
     player = atoi(argv[2]);
+    if (player == 1) {
+        opponent = 2;
+    } else {
+        opponent = 1;
+    }
 
     initconn(argv[1]);
     
@@ -647,8 +658,8 @@ int main(int argc, char *argv[]) {
         readMessage();
         
         if (turn == player) {
-            printf("my move in round_to_play %i\n", round_to_play);
-            printState(state);
+            // printf("my move in round_to_play %i\n", round_to_play);
+            // printState(state);
             // printf("state is:\n");
             // for (int i = 7; i >= 0; i--) {
             //     for (int j = 0; j < 8; j++) {
@@ -656,7 +667,7 @@ int main(int argc, char *argv[]) {
             //     }
             //     printf("\n");
             // }
-            getValidMoves(round_to_play, state, validMoves, numValidMoves, player);
+            // getValidMoves(round_to_play, state, validMoves, numValidMoves, player);
             
             int myMove = move();
 
