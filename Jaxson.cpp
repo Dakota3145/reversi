@@ -33,11 +33,15 @@ const int BLOCK_SIZE = 1024;
 char buf[2 * BLOCK_SIZE];
 int bufstart = 0;
 int bufend, eval = 0;
+
+
 int minEval, maxEval, childMove;
-int CORNER_BONUS = 50;
-int PENALTY_FOR_BEING_AT_RISK_OF_CONCEDING_CORNER = 50;
-int NORMAL_EDGE_BONUS = 20;
-int EDGE_NEXT_TO_CORNER_BONUS = 35;
+int CORNER_BONUS = 5;
+int PENALTY_FOR_BEING_AT_RISK_OF_CONCEDING_CORNER = 5;
+int NORMAL_EDGE_BONUS = 1;
+int EDGE_NEXT_TO_CORNER_BONUS = 3;
+int adjustedDepthLimit = 5;
+int movesLeft = 31; // just to be safe
 
 // Node bestMoveSoFar;
 // map<int, int> scoreThatWillMostLikelyBeChosenForAGivenDepth;
@@ -176,8 +180,8 @@ void readMessage() {
 
     // printf("Turn: %d\n", turn);
     // printf("Round: %d\n", round_to_play);
-    // printf("t1: %f\n", t1);
-    // printf("t2: %f\n", t2);
+    printf("t1: %f\n", t1);
+    printf("t2: %f\n", t2);
 
     // print_board(state);
 }
@@ -390,6 +394,11 @@ void changeColorsAllDirections(int row, int col, int (&myState)[8][8]) {
     }
 }
 
+void setAdjustedDepthBasedOnTimeLeftAndAvailableAmountOfMoves(int numValidMoves) {
+  // int timePerMove = t2 / movesLeft;
+
+  adjustedDepthLimit = numValidMoves <= 12 ? 12 - numValidMoves : 2;
+}
 
 int calculateCoinParity(int myState[8][8]){
     int myCoins = 0;
@@ -530,44 +539,34 @@ int calculateStability(int myState[8][8]) {
 }
 
 
-int heurEval(int myState[8][8], int depth) {
+int evaluationForThisState(int myState[8][8], int depth) {
     int coinParity = calculateCoinParity(myState);
     int mobilityScore = calculateMobility(myState, depth);
     int cornerScore = calculateCornerAdvantage(myState);
     int stabilityScore = calculateStability(myState);
 
-    int score = coinParity + mobilityScore + cornerScore + stabilityScore;
-    cout << "Current score for the following state is: " << score << endl;
-    printState(myState);
-    cout << endl << endl;
+    int score = 1 * coinParity + 5 * mobilityScore + 2 * cornerScore + 10 * stabilityScore;
+    // cout << "Current score for the following state is: " << score << endl;
+    // printState(myState);
+    // cout << endl << endl;
     // sleep(10);
 
     return score;
 }
 
-int validCornerMove(int myValidMoves[64], int myNumValidMoves) {
-    int validCornerMove = -1;
-    for (int i = 0; i < myNumValidMoves; i++) {
-        if (myValidMoves[i] == 0 || 
-            myValidMoves[i] == 7 || 
-            myValidMoves[i] == 56 || 
-            myValidMoves[i] == 63) {
-                validCornerMove = myValidMoves[i];
-                return validCornerMove;
-            }
-    }
-    return validCornerMove;
-}
 
 int minimax(int currentState[8][8], int depth, int alpha, int beta, int maximizingPlayer, int (&scoresByIndex)[15]) {
-    if (depth >= 5) { // Hit end of depth. Returning
-        return heurEval(currentState, depth);
+    if (depth >= adjustedDepthLimit) { // Hit end of depth. Returning
+        return evaluationForThisState(currentState, depth);
     }
     int myValidMoves[64];
     int myNumValidMoves = 0;
     getValidMoves(round_to_play + depth, currentState, myValidMoves, myNumValidMoves, maximizingPlayer ? player : opponent);
     if (myNumValidMoves == 0) { // No moves available. Returning
-        return heurEval(currentState, depth);
+        return evaluationForThisState(currentState, depth);
+    }
+    if (depth == 0) {
+      setAdjustedDepthBasedOnTimeLeftAndAvailableAmountOfMoves(myNumValidMoves);
     }
 
     if (maximizingPlayer) {
@@ -634,8 +633,9 @@ int minimax(int currentState[8][8], int depth, int alpha, int beta, int maximizi
 
 
 int move() {
-    
+    movesLeft -= 1;
     int scoresByIndex[15];
+    adjustedDepthLimit = 1;
     return minimax(state, 0, (int)-INFINITY, (int)INFINITY, true, scoresByIndex);
 }
 
