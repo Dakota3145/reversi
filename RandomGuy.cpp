@@ -495,7 +495,7 @@ int heurStability(int myState[8][8], int row, int col, int currPlayer) {
     return stability;
 }
 
-int heurEval(int myState[8][8], int currPlayer, int row, int col, int depth = 1) {
+int heurEval(int myState[8][8], int currPlayer, int row = -1, int col = -1, int depth = 1) {
     int evalScore = 0;
     //calc heuristic for coin parity
     int parityWeight = 1;
@@ -503,19 +503,19 @@ int heurEval(int myState[8][8], int currPlayer, int row, int col, int depth = 1)
     evalScore += parityScore;
 
     //calc heuristic for mobility (how many moves you can make vs how many they can make)
-    int mobilityWeight = 1;
-    int mobilityScore = mobilityWeight * heurMobility(myState, currPlayer, depth);
+    double mobilityWeight = 0.5;
+    int mobilityScore = (int)(mobilityWeight * heurMobility(myState, currPlayer, depth));
     evalScore += mobilityScore;
 
     //calc heuristic for corners (how many corners you have vs how many they have)
-    int cornerWeight = 1;
+    int cornerWeight = 20;
     int cornerScore = cornerWeight * heurCorners(myState, currPlayer);
     evalScore += cornerScore;
 
     //calc heuristic for stability (how likely the move is to not get captured. 
         //0 - middle pieces, 1 - edge piece, 2 - edge piece next to our corner piece, 3 - corner)
     if (row >= 0){ // only calculate for potential moves, not for a static analysis
-        int stabilityWeight = 1;
+        int stabilityWeight = 100;
         int stabilityScore = stabilityWeight * heurStability(myState, row, col, currPlayer);
         evalScore += stabilityScore;
 
@@ -525,24 +525,37 @@ int heurEval(int myState[8][8], int currPlayer, int row, int col, int depth = 1)
     //         "Corner Score: " << cornerScore << "\n" 
             // << "Stability Score: " << stabilityScore << "\n"
             // ;
-    cout << "I am player " << currPlayer << ", current score for the following state is: " << evalScore << endl;
-    printState(myState);
-    cout << endl << endl;
-    sleep(15);
     return evalScore;
 }
 
-int minimax(int currentState[8][8], int depth, int alpha, int beta, int maximizingPlayer, int (&scoresByIndex)[15]) {
+int validCornerMove(int myValidMoves[64], int myNumValidMoves) {
+    int validCornerMove = -1;
+    for (int i = 0; i < myNumValidMoves; i++) {
+        if (myValidMoves[i] == 0 || 
+            myValidMoves[i] == 7 || 
+            myValidMoves[i] == 56 || 
+            myValidMoves[i] == 63) {
+                validCornerMove = myValidMoves[i];
+                return validCornerMove;
+            }
+    }
+    return validCornerMove;
+}
+
+int minimax(int currentState[8][8], int depth, int alpha, int beta, int maximizingPlayer, int (&scoresByIndex)[15], int row = -1, int col = -1) { 
     if (depth >= 5) { // Hit end of depth. Returning
-        return heurEval(currentState, maximizingPlayer ? player : opponent, -1, -1);
+        return heurEval(currentState, maximizingPlayer ? player : opponent, row, col);
     }
     int myValidMoves[64];
     int myNumValidMoves = 0;
     getValidMoves(round_to_play + depth, currentState, myValidMoves, myNumValidMoves, maximizingPlayer ? player : opponent);
     if (myNumValidMoves == 0) { // No moves available. Returning
-        return heurEval(currentState, maximizingPlayer ? player : opponent, -1, -1);
+        return heurEval(currentState, maximizingPlayer ? player : opponent, row, col);
     }
-
+    int cornerMove = validCornerMove(myValidMoves, myNumValidMoves);
+    if (depth == 0 && (cornerMove > -1)) {
+        return cornerMove;
+    }
     if (maximizingPlayer) {
         maxEval = (int)-INFINITY;
         for (int i = 0; i < myNumValidMoves; i++) {
@@ -551,9 +564,11 @@ int minimax(int currentState[8][8], int depth, int alpha, int beta, int maximizi
 
 
             copyState(currentState, newState);
+            int childRow = (int)(childMove / 8);
+            int childCol = childMove % 8;
             newState[(int)(childMove / 8)][childMove % 8] = player;
-            changeColorsAllDirections((int)(childMove / 8), childMove % 8, newState);
-            eval = minimax(newState, depth + 1, alpha, beta, false, scoresByIndex);
+            changeColorsAllDirections(childRow, childCol, newState);
+            eval = minimax(newState, depth + 1, alpha, beta, false, scoresByIndex, childRow, childCol);
             maxEval = max(maxEval, eval);
             if (depth == 0) { // save final eval for comparison and selection
                 scoresByIndex[i] = eval;
@@ -592,9 +607,11 @@ int minimax(int currentState[8][8], int depth, int alpha, int beta, int maximizi
             int newState[8][8];
 
             copyState(currentState, newState);
-            newState[(int)(childMove / 8)][childMove % 8] = opponent;
-            changeColorsAllDirections((int)(childMove / 8), childMove % 8, newState);
-            eval = minimax(newState, depth + 1, alpha, beta, true, scoresByIndex);
+            int childRow = (int)(childMove / 8);
+            int childCol = childMove % 8;
+            newState[childRow][childCol] = opponent;
+            changeColorsAllDirections(childRow, childCol, newState);
+            eval = minimax(newState, depth + 1, alpha, beta, true, scoresByIndex, childRow, childCol);
             minEval = min(minEval, eval);
             beta = min(beta, eval);
             if (beta <= alpha) { // prune
@@ -617,10 +634,10 @@ int move() {
 //   ipaddress is the ipaddress on the computer the server was launched on.  Enter "localhost" if it is on the same computer
 //   player_number is 1 (for the black player) and 2 (for the white player)
 int main(int argc, char *argv[]) {
-    // argc = 3;
-    // argv[0] = "./RandomGuy";
-    // argv[1] = "localhost";
-    // argv[2] = "2";
+    argc = 3;
+    argv[0] = "./RandomGuy";
+    argv[1] = "localhost";
+    argv[2] = "2";
     if (argc < 3) {
         printf("Not enough parameters\n");
     }
