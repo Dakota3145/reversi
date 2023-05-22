@@ -34,25 +34,10 @@ char buf[2 * BLOCK_SIZE];
 int bufstart = 0;
 int bufend, eval = 0;
 int minEval, maxEval, childMove;
-
-
-
-class Node {
-    public:
-        int state[8][8];
-        int depth;
-        int score;
-        int move;
-        Node * expandedChildren[12];
-        Node();
-        Node(int myState[8][8], unsigned int depth, unsigned int move) { // Constructor with parameters
-            for (int i = 0; i < 8; i++) {
-                copy(begin(this->state[i]), end(this->state[i]), begin(myState[i]));
-            }
-            this->depth = depth;
-            this->move = move;
-        }
-};
+int CORNER_BONUS = 50;
+int PENALTY_FOR_BEING_AT_RISK_OF_CONCEDING_CORNER = 50;
+int NORMAL_EDGE_BONUS = 20;
+int EDGE_NEXT_TO_CORNER_BONUS = 35;
 
 // Node bestMoveSoFar;
 // map<int, int> scoreThatWillMostLikelyBeChosenForAGivenDepth;
@@ -283,14 +268,14 @@ void getValidMoves(int round_to_play, int state[8][8], int (&myValidMoves)[64], 
             myValidMoves[myNumValidMoves] = 4*8 + 4;
             myNumValidMoves ++;
         }
-        printf("Valid Moves:\n");
-        for (i = 0; i < myNumValidMoves; i++) {
-            printf("%i, %i\n", (int)(myValidMoves[i] / 8), myValidMoves[i] % 8);
-        }
-        printf("\n");
+        // printf("Valid Moves:\n");
+        // for (i = 0; i < myNumValidMoves; i++) {
+        //     printf("%i, %i\n", (int)(myValidMoves[i] / 8), myValidMoves[i] % 8);
+        // }
+        // printf("\n");
     }
     else {
-        printf("Valid Moves:\n");
+        // printf("Valid Moves:\n");
         for (i = 0; i < 8; i++) {
             for (j = 0; j < 8; j++) {
                 if (state[i][j] == 0) {
@@ -299,9 +284,9 @@ void getValidMoves(int round_to_play, int state[8][8], int (&myValidMoves)[64], 
                     if (numOfPiecesCaptured > 0) {
                         myValidMoves[myNumValidMoves] = i*8 + j;
                         piecesCaptured[myNumValidMoves] = numOfPiecesCaptured;
-                        cout << "FOUND A VALID MOVE, " << i*8 + j << ", which captures " << numOfPiecesCaptured << " pieces!!!\n";
+                        // cout << "FOUND A VALID MOVE, " << i*8 + j << ", which captures " << numOfPiecesCaptured << " pieces!!!\n";
                         myNumValidMoves ++;
-                        printf("%i, %i\n", i, j);
+                        // printf("%i, %i\n", i, j);
                     }
                 }
             }
@@ -406,14 +391,12 @@ void changeColorsAllDirections(int row, int col, int (&myState)[8][8]) {
 }
 
 
-
-int heurParity(int myState[8][8], int currPlayer){
-    int opponent = 3 - currPlayer;
+int calculateCoinParity(int myState[8][8]){
     int myCoins = 0;
     int oppCoins = 0;
     for (int i = 0; i < 8; i++) {
         for (int j = 0; j < 8; j++) {
-            if (myState[i][j] == currPlayer) {
+            if (myState[i][j] == player) {
                 myCoins += 1;
             }
             else if (myState[i][j] == opponent) {
@@ -421,144 +404,145 @@ int heurParity(int myState[8][8], int currPlayer){
             }
         }
     }
-    int parity = myCoins - oppCoins;
-    return parity;
+    return 100 * (myCoins - oppCoins) / (myCoins + oppCoins);
 }
 
-int heurMobility(int myState[8][8], int currPlayer, int depth = 1) {
+int calculateMobility(int myState[8][8], int depth = 1) {
     int myValidMoves[64];
     int myNumValidMoves;
-    getValidMoves(round_to_play + depth, myState, myValidMoves, myNumValidMoves, currPlayer);
-    int oppPlayer = 3 - currPlayer;
+    getValidMoves(round_to_play + depth, myState, myValidMoves, myNumValidMoves, player);
     int oppValidMoves[64];
     int oppNumValidMoves;
-    getValidMoves(round_to_play + depth, myState, oppValidMoves, oppNumValidMoves, oppPlayer);
-    int mobility = myNumValidMoves - oppNumValidMoves;
-    return mobility;
-}
+    getValidMoves(round_to_play + depth, myState, oppValidMoves, oppNumValidMoves, opponent);
 
-int heurCorners(int myState[8][8], int currPlayer) {
-    int corners[4];
-    corners[0] = myState[0][0];
-    corners[1] = myState[0][7];
-    corners[2] = myState[7][0];
-    corners[3] = myState[7][7];
-    int oppPlayer = 3 - currPlayer;
-    int myCorners = 0;
-    int oppCorners = 0;
-    for (int i = 0; i < 4; i++) {
-        if (corners[i] == currPlayer) {
-            myCorners += 1;
-        }
-        else if (corners[i] == oppPlayer) {
-            oppCorners += 1;
-        }
+    if ( myNumValidMoves + oppNumValidMoves != 0) {
+      return 100 * (myNumValidMoves - oppNumValidMoves) / (myNumValidMoves + oppNumValidMoves);
+    } else {
+      return 0;
     }
-    int parity = myCorners - oppCorners;
-    return parity;
 }
 
-int heurStability(int myState[8][8], int row, int col, int currPlayer) {
-    int stability = 0;
-    if (row == 0 || row == 7 || col == 0 || col == 7) {
-        if ((row == 0 && col == 0) || 
-            (row == 0 && col == 7) ||
-            (row == 7 && col == 0) ||
-            (row == 7 && col == 7)) {
-                stability = 3;
+int calculateCornerAdvantage(int myState[8][8]) {
+  int myCorners, oppCorners = 0;
+	if(myState[0][0] == player) myCorners++;
+	else if(myState[0][0] == opponent) oppCorners++;
+	if(myState[0][7] == player) myCorners++;
+	else if(myState[0][7] == opponent) oppCorners++;
+	if(myState[7][0] == player) myCorners++;
+	else if(myState[7][0] == opponent) oppCorners++;
+	if(myState[7][7] == player) myCorners++;
+	else if(myState[7][7] == opponent) oppCorners++;
+
+    if ( myCorners + oppCorners != 0) {
+      return 100 * (myCorners - oppCorners) / (myCorners + oppCorners);
+    } else {
+      return 0;
+    }
+}
+
+int calculateStability(int myState[8][8]) {
+    int stabilityScore = 0;
+    
+    // Check corners
+    if (myState[0][0] == player)
+        stabilityScore += CORNER_BONUS;
+    if (myState[0][7] == player)
+        stabilityScore += CORNER_BONUS;
+    if (myState[7][0] == player)
+        stabilityScore += CORNER_BONUS;
+    if (myState[7][7] == player)
+        stabilityScore += CORNER_BONUS;
+    
+    // Check edges
+    for (int i = 1; i < 7; i++) {
+        if (myState[0][i] == player) { // check bottom row
+            if (i == 1) { // next to bottom left corner
+              if (myState[0][0] == player) {
+                stabilityScore += EDGE_NEXT_TO_CORNER_BONUS;
+              } else {
+                stabilityScore -= PENALTY_FOR_BEING_AT_RISK_OF_CONCEDING_CORNER;
+              }
+            } else if (i == 6) { // next to bottom right corner
+              if (myState[0][7] == player) {
+                stabilityScore += EDGE_NEXT_TO_CORNER_BONUS;
+              } else {
+                stabilityScore -= PENALTY_FOR_BEING_AT_RISK_OF_CONCEDING_CORNER;
+              }
+            } else {
+              stabilityScore += NORMAL_EDGE_BONUS;
             }
-        else {
-            int rows[2] = {0, 7};
-            int cols[2] = {0, 7};
-            int rowDist;
-            int colDist;
-            int totalDist;
-            for (int i = 0; i < 2; i++) {
-                for (int j = 0; j < 2; j++) {
-                    if (myState[rows[i]][cols[j]] == currPlayer) {
-                        rowDist = abs(rows[i] - row);
-                        colDist = abs(cols[j] - col);
-                        totalDist = rowDist + colDist;
-                        if (totalDist == 1) {
-                            stability = 2;
-                            return stability;
-                        }
-                    }
-                }
-            }
-            stability = 1;
         }
+        if (myState[7][i] == player) { // check top row
+            if (i == 1) { // next to top left corner
+              if (myState[7][0] == player) {
+                stabilityScore += EDGE_NEXT_TO_CORNER_BONUS;
+              } else {
+                stabilityScore -= PENALTY_FOR_BEING_AT_RISK_OF_CONCEDING_CORNER;
+              }
+            } else if (i == 6) { // next to top right corner
+              if (myState[7][7] == player) {
+                stabilityScore += EDGE_NEXT_TO_CORNER_BONUS;
+              } else {
+                stabilityScore -= PENALTY_FOR_BEING_AT_RISK_OF_CONCEDING_CORNER;
+              }
+            } else {
+              stabilityScore += NORMAL_EDGE_BONUS;
+            }
+        }
+        if (myState[i][0] == player) { // check left column
+            if (i == 1) { // on top of bottom left corner
+              if (myState[0][0] == player) {
+                stabilityScore += EDGE_NEXT_TO_CORNER_BONUS;
+              } else {
+                stabilityScore -= PENALTY_FOR_BEING_AT_RISK_OF_CONCEDING_CORNER;
+              }
+            } else if (i == 6) { // next to top left corner
+              if (myState[7][0] == player) {
+                stabilityScore += EDGE_NEXT_TO_CORNER_BONUS;
+              } else {
+                stabilityScore -= PENALTY_FOR_BEING_AT_RISK_OF_CONCEDING_CORNER;
+              }
+            } else {
+              stabilityScore += NORMAL_EDGE_BONUS;
+            }
+        }
+        if (myState[i][7] == player) { // check right column
+            if (i == 1) { // on top of bottom right corner
+              if (myState[0][7] == player) {
+                stabilityScore += EDGE_NEXT_TO_CORNER_BONUS;
+              } else {
+                stabilityScore -= PENALTY_FOR_BEING_AT_RISK_OF_CONCEDING_CORNER;
+              }
+            } else if (i == 6) { // under top right corner
+              if (myState[7][7] == player) {
+                stabilityScore += EDGE_NEXT_TO_CORNER_BONUS;
+              } else {
+                stabilityScore -= PENALTY_FOR_BEING_AT_RISK_OF_CONCEDING_CORNER;
+              }
+            } else {
+              stabilityScore += NORMAL_EDGE_BONUS;
+            }
+        }
+        
     }
-    else {
-        stability = 0;
-    }
-    return stability;
+    
+    return stabilityScore;
 }
 
-int heurEvalJaxson(int myState[8][8], int currPlayer, int depth) {
-    int evalScore = 0;
-    //calc heuristic for coin parity
-    int parityWeight = 1;
-    int parityScore = parityWeight * heurParity(myState, currPlayer);
-    evalScore += parityScore;
 
-    //calc heuristic for mobility (how many moves you can make vs how many they can make)
-    double mobilityWeight = 0.5;
-    int mobilityScore = (int)(mobilityWeight * heurMobility(myState, currPlayer, depth));
-    evalScore += mobilityScore;
+int heurEval(int myState[8][8], int depth) {
+    int coinParity = calculateCoinParity(myState);
+    int mobilityScore = calculateMobility(myState, depth);
+    int cornerScore = calculateCornerAdvantage(myState);
+    int stabilityScore = calculateStability(myState);
 
-    //calc heuristic for corners (how many corners you have vs how many they have)
-    int cornerWeight = 20;
-    int cornerScore = cornerWeight * heurCorners(myState, currPlayer);
-    evalScore += cornerScore;
+    int score = coinParity + mobilityScore + cornerScore + stabilityScore;
+    cout << "Current score for the following state is: " << score << endl;
+    printState(myState);
+    cout << endl << endl;
+    // sleep(10);
 
-    //calc heuristic for stability (how likely the move is to not get captured. 
-        //0 - middle pieces, 1 - edge piece, 2 - edge piece next to our corner piece, 3 - corner)
-    if (row >= 0){ // only calculate for potential moves, not for a static analysis
-        int stabilityWeight = 100;
-        int stabilityScore = stabilityWeight * heurStability(myState, row, col, currPlayer);
-        evalScore += stabilityScore;
-
-    }
-    // cout << "Parity Score: " << parityScore << "\n" << 
-    //         "Mobility Score: " << mobilityScore << "\n" <<
-    //         "Corner Score: " << cornerScore << "\n" 
-            // << "Stability Score: " << stabilityScore << "\n"
-            // ;
-    return evalScore;
-}
-
-int heurEvalDakota(int myState[8][8], int currPlayer, int row = -1, int col = -1, int depth = 1) {
-    int evalScore = 0;
-    //calc heuristic for coin parity
-    int parityWeight = 1;
-    int parityScore = parityWeight * heurParity(myState, currPlayer);
-    evalScore += parityScore;
-
-    //calc heuristic for mobility (how many moves you can make vs how many they can make)
-    double mobilityWeight = 0.5;
-    int mobilityScore = (int)(mobilityWeight * heurMobility(myState, currPlayer, depth));
-    evalScore += mobilityScore;
-
-    //calc heuristic for corners (how many corners you have vs how many they have)
-    int cornerWeight = 20;
-    int cornerScore = cornerWeight * heurCorners(myState, currPlayer);
-    evalScore += cornerScore;
-
-    //calc heuristic for stability (how likely the move is to not get captured. 
-        //0 - middle pieces, 1 - edge piece, 2 - edge piece next to our corner piece, 3 - corner)
-    if (row >= 0){ // only calculate for potential moves, not for a static analysis
-        int stabilityWeight = 100;
-        int stabilityScore = stabilityWeight * heurStability(myState, row, col, currPlayer);
-        evalScore += stabilityScore;
-
-    }
-    // cout << "Parity Score: " << parityScore << "\n" << 
-    //         "Mobility Score: " << mobilityScore << "\n" <<
-    //         "Corner Score: " << cornerScore << "\n" 
-            // << "Stability Score: " << stabilityScore << "\n"
-            // ;
-    return evalScore;
+    return score;
 }
 
 int validCornerMove(int myValidMoves[64], int myNumValidMoves) {
@@ -575,52 +559,15 @@ int validCornerMove(int myValidMoves[64], int myNumValidMoves) {
     return validCornerMove;
 }
 
-int heurEval(int myState[8][8], int currPlayer, int row, int col, int depth) {
-    int evalScore = 0;
-    //calc heuristic for coin parity
-    int parityWeight = 1;
-    int parityScore = parityWeight * heurParity(myState, currPlayer);
-    evalScore += parityScore;
-
-    //calc heuristic for mobility (how many moves you can make vs how many they can make)
-    int mobilityWeight = 1;
-    int mobilityScore = mobilityWeight * heurMobility(myState, currPlayer, depth);
-    evalScore += mobilityScore;
-
-    //calc heuristic for corners (how many corners you have vs how many they have)
-    int cornerWeight = 1;
-    int cornerScore = cornerWeight * heurCorners(myState, currPlayer);
-    evalScore += cornerScore;
-
-    //calc heuristic for stability (how likely the move is to not get captured. 
-        //0 - middle pieces, 1 - edge piece, 2 - edge piece next to our corner piece, 3 - corner)
-    if (row >= 0){ // only calculate for potential moves, not for a static analysis
-        int stabilityWeight = 1;
-        int stabilityScore = stabilityWeight * heurStability(myState, row, col, currPlayer);
-        evalScore += stabilityScore;
-
-    }
-    // cout << "Parity Score: " << parityScore << "\n" << 
-    //         "Mobility Score: " << mobilityScore << "\n" <<
-    //         "Corner Score: " << cornerScore << "\n" 
-            // << "Stability Score: " << stabilityScore << "\n"
-            // ;
-    cout << "I am player " << currPlayer << ", current score for the following state is: " << evalScore << endl;
-    printState(myState);
-    cout << endl << endl;
-    sleep(15);
-    return evalScore;
-}
-
-int minimaxJaxson(int currentState[8][8], int depth, int alpha, int beta, int maximizingPlayer, int (&scoresByIndex)[15]) {
+int minimax(int currentState[8][8], int depth, int alpha, int beta, int maximizingPlayer, int (&scoresByIndex)[15]) {
     if (depth >= 5) { // Hit end of depth. Returning
-        return heurEvalJaxson(currentState, maximizingPlayer ? player : opponent, depth);
+        return heurEval(currentState, depth);
     }
     int myValidMoves[64];
     int myNumValidMoves = 0;
     getValidMoves(round_to_play + depth, currentState, myValidMoves, myNumValidMoves, maximizingPlayer ? player : opponent);
     if (myNumValidMoves == 0) { // No moves available. Returning
-        return heurEvalJaxson(currentState, maximizingPlayer ? player : opponent, depth);
+        return heurEval(currentState, depth);
     }
 
     if (maximizingPlayer) {
@@ -633,7 +580,7 @@ int minimaxJaxson(int currentState[8][8], int depth, int alpha, int beta, int ma
             copyState(currentState, newState);
             newState[(int)(childMove / 8)][childMove % 8] = player;
             changeColorsAllDirections((int)(childMove / 8), childMove % 8, newState);
-            eval = minimaxJaxson(newState, depth + 1, alpha, beta, false, scoresByIndex);
+            eval = minimax(newState, depth + 1, alpha, beta, false, scoresByIndex);
             maxEval = max(maxEval, eval);
             if (depth == 0) { // save final eval for comparison and selection
                 scoresByIndex[i] = eval;
@@ -644,14 +591,14 @@ int minimaxJaxson(int currentState[8][8], int depth, int alpha, int beta, int ma
             }
         }
         if (depth == 0) {
-            cout << "FINDING OPTIMAL MOVES from the lot:" << endl;
-            for (int i = 0; i < myNumValidMoves; i++) {
-                cout << myValidMoves[i] << endl;
-            }
-            cout << endl;
-            for (int i = 0; i < myNumValidMoves; i++) {
-                cout <<  i << " --> " << scoresByIndex[i] << endl;
-            }
+            // cout << "FINDING OPTIMAL MOVES from the lot:" << endl;
+            // for (int i = 0; i < myNumValidMoves; i++) {
+            //     cout << myValidMoves[i] << endl;
+            // }
+            // cout << endl;
+            // for (int i = 0; i < myNumValidMoves; i++) {
+            //     cout <<  i << " --> " << scoresByIndex[i] << endl;
+            // }
             int maxKey = 0;    // Initialize the variable to store the key of the maximum value
             int maxValue = -(int)INFINITY;  // Initialize the variable to store the maximum value
             for (int i = 0; i < myNumValidMoves; i++) {
@@ -674,7 +621,7 @@ int minimaxJaxson(int currentState[8][8], int depth, int alpha, int beta, int ma
             copyState(currentState, newState);
             newState[(int)(childMove / 8)][childMove % 8] = opponent;
             changeColorsAllDirections((int)(childMove / 8), childMove % 8, newState);
-            eval = minimaxJaxson(newState, depth + 1, alpha, beta, true, scoresByIndex);
+            eval = minimax(newState, depth + 1, alpha, beta, true, scoresByIndex);
             minEval = min(minEval, eval);
             beta = min(beta, eval);
             if (beta <= alpha) { // prune
@@ -685,91 +632,11 @@ int minimaxJaxson(int currentState[8][8], int depth, int alpha, int beta, int ma
     }
 }
 
-int minimaxDakota(int currentState[8][8], int depth, int alpha, int beta, int maximizingPlayer, int (&scoresByIndex)[15], int row = -1, int col = -1) { 
-    if (depth >= 5) { // Hit end of depth. Returning
-        return heurEval(currentState, maximizingPlayer ? player : opponent, row, col);
-    }
-    int myValidMoves[64];
-    int myNumValidMoves = 0;
-    getValidMoves(round_to_play + depth, currentState, myValidMoves, myNumValidMoves, maximizingPlayer ? player : opponent);
-    if (myNumValidMoves == 0) { // No moves available. Returning
-        return heurEval(currentState, maximizingPlayer ? player : opponent, row, col);
-    }
-    int cornerMove = validCornerMove(myValidMoves, myNumValidMoves);
-    if (depth == 0 && (cornerMove > -1)) {
-        return cornerMove;
-    }
-    if (maximizingPlayer) {
-        maxEval = (int)-INFINITY;
-        for (int i = 0; i < myNumValidMoves; i++) {
-            childMove = myValidMoves[i];
-            int newState[8][8];
-
-
-            copyState(currentState, newState);
-            int childRow = (int)(childMove / 8);
-            int childCol = childMove % 8;
-            newState[(int)(childMove / 8)][childMove % 8] = player;
-            changeColorsAllDirections(childRow, childCol, newState);
-            eval = minimax(newState, depth + 1, alpha, beta, false, scoresByIndex, childRow, childCol);
-            maxEval = max(maxEval, eval);
-            if (depth == 0) { // save final eval for comparison and selection
-                scoresByIndex[i] = eval;
-            }
-            alpha = max(alpha, eval);
-            if (beta <= alpha) { // prune
-                break;
-            }
-        }
-        if (depth == 0) {
-            cout << "FINDING OPTIMAL MOVES from the lot:" << endl;
-            for (int i = 0; i < myNumValidMoves; i++) {
-                cout << myValidMoves[i] << endl;
-            }
-            cout << endl;
-            for (int i = 0; i < myNumValidMoves; i++) {
-                cout <<  i << " --> " << scoresByIndex[i] << endl;
-            }
-            int maxKey = 0;    // Initialize the variable to store the key of the maximum value
-            int maxValue = -(int)INFINITY;  // Initialize the variable to store the maximum value
-            for (int i = 0; i < myNumValidMoves; i++) {
-                if (scoresByIndex[i] > maxValue) {
-                    maxKey = i;
-                    maxValue = scoresByIndex[i];
-                }
-            }
-            
-            return myValidMoves[maxKey];
-        } else {
-            return maxEval;
-        }
-    } else {
-        minEval = (int)INFINITY;
-        for (int i = 0; i < myNumValidMoves; i++) {
-            childMove = myValidMoves[i];
-            int newState[8][8];
-
-            copyState(currentState, newState);
-            int childRow = (int)(childMove / 8);
-            int childCol = childMove % 8;
-            newState[childRow][childCol] = opponent;
-            changeColorsAllDirections(childRow, childCol, newState);
-            eval = minimax(newState, depth + 1, alpha, beta, true, scoresByIndex, childRow, childCol);
-            minEval = min(minEval, eval);
-            beta = min(beta, eval);
-            if (beta <= alpha) { // prune
-                break;
-            }
-        }
-        return minEval;
-    }
-}
 
 int move() {
     
     int scoresByIndex[15];
-    // return minimaxDakota(state, 0, (int)-INFINITY, (int)INFINITY, true, scoresByIndex);
-    return minimaxJaxson(state, 0, (int)-INFINITY, (int)INFINITY, true, scoresByIndex);
+    return minimax(state, 0, (int)-INFINITY, (int)INFINITY, true, scoresByIndex);
 }
 
 
@@ -778,10 +645,10 @@ int move() {
 //   ipaddress is the ipaddress on the computer the server was launched on.  Enter "localhost" if it is on the same computer
 //   player_number is 1 (for the black player) and 2 (for the white player)
 int main(int argc, char *argv[]) {
-    argc = 3;
-    argv[0] = "./RandomGuy";
-    argv[1] = "localhost";
-    argv[2] = "2";
+    // argc = 3;
+    // argv[0] = "./RandomGuy";
+    // argv[1] = "localhost";
+    // argv[2] = "2";
     if (argc < 3) {
         printf("Not enough parameters\n");
     }
@@ -789,11 +656,7 @@ int main(int argc, char *argv[]) {
     srand(time(NULL));
 
     player = atoi(argv[2]);
-    if (player == 1) {
-        opponent = 2;
-    } else {
-        opponent = 1;
-    }
+    opponent = 3 - player;
 
     initconn(argv[1]);
     
@@ -802,17 +665,6 @@ int main(int argc, char *argv[]) {
         readMessage();
         
         if (turn == player) {
-            // printf("my move in round_to_play %i\n", round_to_play);
-            // printState(state);
-            // printf("state is:\n");
-            // for (int i = 7; i >= 0; i--) {
-            //     for (int j = 0; j < 8; j++) {
-            //         printf("%i ", state[i][j]);
-            //     }
-            //     printf("\n");
-            // }
-            // getValidMoves(round_to_play, state, validMoves, numValidMoves, player);
-            
             int myMove = move();
             sendMessage(myMove);
         }
