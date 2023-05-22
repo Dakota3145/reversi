@@ -10,6 +10,8 @@
 #include <cstring>
 #include <cmath>
 #include <map>
+#include <chrono>
+
 
 using namespace std;
 
@@ -180,8 +182,8 @@ void readMessage() {
 
     // printf("Turn: %d\n", turn);
     // printf("Round: %d\n", round_to_play);
-    printf("t1: %f\n", t1);
-    printf("t2: %f\n", t2);
+    // printf("t1: %f\n", t1);
+    // printf("t2: %f\n", t2);
 
     // print_board(state);
 }
@@ -189,7 +191,7 @@ void readMessage() {
 void sendMessage(int m) {
     int i = m/8;
     int j = m%8;
-    printf("sending %i, %i from %i\n", i, j, m);
+    // printf("sending %i, %i from %i\n", i, j, m);
     dprintf(sfd, "%d\n%d\n", i, j);
 }
 
@@ -395,9 +397,19 @@ void changeColorsAllDirections(int row, int col, int (&myState)[8][8]) {
 }
 
 void setAdjustedDepthBasedOnTimeLeftAndAvailableAmountOfMoves(int numValidMoves) {
-  // int timePerMove = t2 / movesLeft;
-
-  adjustedDepthLimit = numValidMoves <= 12 ? 12 - numValidMoves : 2;
+    int timePerMove = t2 / movesLeft;
+    if (t2 < 5.0) { // safeguard
+        adjustedDepthLimit = 6;
+    } else if (t2 < 50.0) {
+        adjustedDepthLimit = 7;
+    } else if (t2 > 120.0 && numValidMoves <= 12) {
+        adjustedDepthLimit = 8;
+    } else if (numValidMoves <= 10) {
+        adjustedDepthLimit = 10;
+    } else {
+        adjustedDepthLimit = 7;
+    }
+    cout << "and a depth of " << adjustedDepthLimit << ", it took ";
 }
 
 int calculateCoinParity(int myState[8][8]){
@@ -566,6 +578,7 @@ int minimax(int currentState[8][8], int depth, int alpha, int beta, int maximizi
         return evaluationForThisState(currentState, depth);
     }
     if (depth == 0) {
+        cout << "For " << myNumValidMoves << " moves, ";
       setAdjustedDepthBasedOnTimeLeftAndAvailableAmountOfMoves(myNumValidMoves);
     }
 
@@ -661,15 +674,20 @@ int main(int argc, char *argv[]) {
     initconn(argv[1]);
     
     while (true) {
-        printf("Read\n");
+        // printf("Read\n");
         readMessage();
         
         if (turn == player) {
+            auto start = chrono::high_resolution_clock::now();
             int myMove = move();
+            auto end = chrono::high_resolution_clock::now();
+            chrono::duration<double> duration = end - start;
+            cout << duration.count() << " seconds." << endl;
             sendMessage(myMove);
         }
         else {
-            printf("their move");
+            // printf("their move");
+            cout << endl;
         }
     }
 
