@@ -39,8 +39,8 @@ int bufend, eval = 0;
 
 int minEval, maxEval, childMove;
 int CORNER_BONUS = 5;
-int PENALTY_FOR_BEING_AT_RISK_OF_CONCEDING_CORNER = 5;
-int NORMAL_EDGE_BONUS = 1;
+int PENALTY_FOR_BEING_AT_RISK_OF_CONCEDING_CORNER = 10;
+int NORMAL_EDGE_BONUS = 2;
 int EDGE_NEXT_TO_CORNER_BONUS = 3;
 int adjustedDepthLimit = 5;
 int movesLeft = 31; // just to be safe
@@ -397,7 +397,6 @@ void changeColorsAllDirections(int row, int col, int (&myState)[8][8]) {
 }
 
 void setAdjustedDepthBasedOnTimeLeftAndAvailableAmountOfMoves(int numValidMoves) {
-    int timePerMove = t2 / movesLeft;
     if (t2 < 5.0) { // safeguard
         adjustedDepthLimit = 6;
     } else if (t2 < 50.0) {
@@ -557,7 +556,7 @@ int evaluationForThisState(int myState[8][8], int depth) {
     int cornerScore = calculateCornerAdvantage(myState);
     int stabilityScore = calculateStability(myState);
 
-    int score = 1 * coinParity + 5 * mobilityScore + 2 * cornerScore + 10 * stabilityScore;
+    int score = 2 * coinParity + 2 * mobilityScore + 5 * stabilityScore + 2 * cornerScore;
     // cout << "Current score for the following state is: " << score << endl;
     // printState(myState);
     // cout << endl << endl;
@@ -674,7 +673,7 @@ int main(int argc, char *argv[]) {
     initconn(argv[1]);
     
     while (true) {
-        // printf("Read\n");
+        printf("Read\n");
         readMessage();
         
         if (turn == player) {

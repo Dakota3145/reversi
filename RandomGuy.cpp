@@ -778,10 +778,10 @@ int move() {
 //   ipaddress is the ipaddress on the computer the server was launched on.  Enter "localhost" if it is on the same computer
 //   player_number is 1 (for the black player) and 2 (for the white player)
 int main(int argc, char *argv[]) {
-    argc = 3;
-    argv[0] = "./RandomGuy";
-    argv[1] = "localhost";
-    argv[2] = "2";
+    // argc = 3;
+    // argv[0] = "./RandomGuy";
+    // argv[1] = "localhost";
+    // argv[2] = "2";
     if (argc < 3) {
         printf("Not enough parameters\n");
     }
