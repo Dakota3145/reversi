@@ -24,8 +24,8 @@ int opponent;
 double time_limit = -1;
 double t1, t2; // time remaining
 int state[8][8];
-int a = 30;
-int b = 10;
+int a = 100;
+int b = 30;
 int c = 3;
 int d = 1;
 int rewards[8][8] = {
