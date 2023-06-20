@@ -11,6 +11,8 @@
 #include <cmath>
 #include <map>
 #include <chrono>
+#include <tuple>
+#include <queue>
 
 
 using namespace std;
@@ -38,10 +40,7 @@ int bufend, eval = 0;
 
 
 int minEval, maxEval, childMove;
-int CORNER_BONUS = 5;
-int PENALTY_FOR_BEING_AT_RISK_OF_CONCEDING_CORNER = 10;
-int NORMAL_EDGE_BONUS = 2;
-int EDGE_NEXT_TO_CORNER_BONUS = 3;
+
 double MAX_LEGAL_MOVES_POSSIBLE = 28.0;
 int adjustedDepthLimit = 5;
 int movesLeft = 31; // just to be safe
@@ -310,7 +309,6 @@ void copyState(int ogState[8][8], int (&newState)[8][8]) {
 }
 
 void printState(int myState[8][8]) {
-    printf("state is:\n");
     for (int i = 7; i >= 0; i--) {
         for (int j = 0; j < 8; j++) {
             printf("%i ", myState[i][j]);
@@ -463,110 +461,263 @@ double calculateMobility(int myState[8][8], int depth = 1) {
 }
 
 double calculateCornerAdvantage(int myState[8][8]) {
-  int myCorners, oppCorners = 0;
-	if(myState[0][0] == player) myCorners++;
-	else if(myState[0][0] == opponent) oppCorners++;
-	if(myState[0][7] == player) myCorners++;
-	else if(myState[0][7] == opponent) oppCorners++;
-	if(myState[7][0] == player) myCorners++;
-	else if(myState[7][0] == opponent) oppCorners++;
-	if(myState[7][7] == player) myCorners++;
-	else if(myState[7][7] == opponent) oppCorners++;
+  double myCorners = 0;
+  double oppCorners = 0;
+	if(myState[0][0] == player) myCorners += 1.0;
+	else if(myState[0][0] == opponent) oppCorners += 1.0;
+	if(myState[0][7] == player) myCorners += 1.0;
+	else if(myState[0][7] == opponent) oppCorners += 1.0;
+	if(myState[7][0] == player) myCorners += 1.0;
+	else if(myState[7][0] == opponent) oppCorners += 1.0;
+	if(myState[7][7] == player) myCorners += 1.0;
+	else if(myState[7][7] == opponent) oppCorners += 1.0;
 
-    if ( myCorners + oppCorners != 0) {
-      return 100 * (myCorners - oppCorners) / (myCorners + oppCorners);
-    } else {
-      return 0;
+    return normalizeScore(myCorners - oppCorners, -4.0, 4.0);
+}
+
+queue<tuple<int, int>> createTraversalQueue(int myState[8][8]) {
+    queue<tuple<int, int>> traversalQueue;
+    int stabilityGrid[8][8];
+
+    // Add the four corners
+    traversalQueue.push(make_tuple(0, 0));
+    traversalQueue.push(make_tuple(0, 1));
+    traversalQueue.push(make_tuple(0, 2));
+    traversalQueue.push(make_tuple(0, 3));
+
+    traversalQueue.push(make_tuple(0, 7));
+    traversalQueue.push(make_tuple(0, 6));
+    traversalQueue.push(make_tuple(0, 5));
+    traversalQueue.push(make_tuple(0, 4));
+
+    traversalQueue.push(make_tuple(7, 0));
+    traversalQueue.push(make_tuple(7, 1));
+    traversalQueue.push(make_tuple(7, 2));
+    traversalQueue.push(make_tuple(7, 3));
+
+    traversalQueue.push(make_tuple(7, 7));
+    traversalQueue.push(make_tuple(7, 6));
+    traversalQueue.push(make_tuple(7, 5));
+    traversalQueue.push(make_tuple(7, 4));
+
+    // =================================================================
+
+    traversalQueue.push(make_tuple(1, 0));
+    traversalQueue.push(make_tuple(2, 0));
+    traversalQueue.push(make_tuple(3, 0));
+
+    traversalQueue.push(make_tuple(6, 0));
+    traversalQueue.push(make_tuple(5, 0));
+    traversalQueue.push(make_tuple(4, 0));
+
+    traversalQueue.push(make_tuple(1, 7));
+    traversalQueue.push(make_tuple(2, 7));
+    traversalQueue.push(make_tuple(3, 7));
+
+    traversalQueue.push(make_tuple(6, 7));
+    traversalQueue.push(make_tuple(5, 7));
+    traversalQueue.push(make_tuple(4, 7));
+
+    // =================================================================
+
+    traversalQueue.push(make_tuple(1, 1));
+    traversalQueue.push(make_tuple(1, 2));
+    traversalQueue.push(make_tuple(1, 3));
+
+    traversalQueue.push(make_tuple(1, 6));
+    traversalQueue.push(make_tuple(1, 5));
+    traversalQueue.push(make_tuple(1, 4));
+
+    traversalQueue.push(make_tuple(6, 1));
+    traversalQueue.push(make_tuple(6, 2));
+    traversalQueue.push(make_tuple(6, 3));
+
+    traversalQueue.push(make_tuple(6, 6));
+    traversalQueue.push(make_tuple(6, 5));
+    traversalQueue.push(make_tuple(6, 4));
+
+    // =================================================================
+
+    traversalQueue.push(make_tuple(2, 1));
+    traversalQueue.push(make_tuple(3, 1));
+
+    traversalQueue.push(make_tuple(5, 1));
+    traversalQueue.push(make_tuple(4, 1));
+
+    traversalQueue.push(make_tuple(2, 6));
+    traversalQueue.push(make_tuple(3, 6));
+
+    traversalQueue.push(make_tuple(5, 6));
+    traversalQueue.push(make_tuple(4, 6));
+
+    // =================================================================
+
+    traversalQueue.push(make_tuple(2, 2));
+    traversalQueue.push(make_tuple(2, 3));
+
+    traversalQueue.push(make_tuple(2, 5));
+    traversalQueue.push(make_tuple(2, 4));
+
+    traversalQueue.push(make_tuple(5, 2));
+    traversalQueue.push(make_tuple(5, 3));
+
+    traversalQueue.push(make_tuple(5, 5));
+    traversalQueue.push(make_tuple(5, 4));
+
+    // =================================================================
+
+    traversalQueue.push(make_tuple(3, 2));
+
+    traversalQueue.push(make_tuple(4, 2));
+
+    traversalQueue.push(make_tuple(3, 5));
+
+    traversalQueue.push(make_tuple(4, 5));
+
+    // =================================================================
+
+    traversalQueue.push(make_tuple(3, 3));
+
+    traversalQueue.push(make_tuple(4, 3));
+
+    traversalQueue.push(make_tuple(3, 4));
+
+    traversalQueue.push(make_tuple(4, 4));
+
+
+    // int grid[8][8];
+    // int counter = 0;
+    // // Print the queue elements
+    // while (!traversalQueue.empty()) {
+    //     tuple<int, int> position = traversalQueue.front();
+    //     traversalQueue.pop();
+    //     int x = get<0>(position);
+    //     int y = get<1>(position);
+    //     grid[x][y] = counter;
+    //     counter++;
+    // }
+    // cout << endl << "Traversal order is: " << endl;
+    // printState(grid);
+    return traversalQueue;
+}
+
+int STABLE = 1;
+int ROCK_SOLID = 2;
+// int PENALTY_FOR_BEING_AT_RISK_OF_CONCEDING_CORNER = 10;
+// int EDGE_NEXT_TO_CORNER_BONUS = 3;
+
+bool isCorner(int x, int y) {
+    return (x == 0 && y == 0)
+    || (x == 0 && y == 7)
+    || (x == 7 && y == 0)
+    || (x == 7 && y == 7);
+}
+
+bool isEdgePiece(int x, int y) {
+    return x == 0 || x == 7 || y == 0 || y == 7;
+}
+
+bool isOutOfBoundsOrEqualToSafeNumber(int x, int y, int safeNumber, int stabilityGrid[8][8]) {
+    return x < 0 || y < 0 || x > 7 || y > 7 || stabilityGrid[x][y] == safeNumber;
+}
+
+bool isThisDirectionSafe(int x, int y, int direction, int stabilityGrid[8][8], int safeNumber) {
+    switch (direction) {
+        case 0: // LEFT
+            return isOutOfBoundsOrEqualToSafeNumber(x - 1, y, safeNumber, stabilityGrid);
+            break;
+        case 1: // LEFT-UP
+            return isOutOfBoundsOrEqualToSafeNumber(x - 1, y + 1, safeNumber, stabilityGrid);
+            break;
+        case 2: // UP
+            return isOutOfBoundsOrEqualToSafeNumber(x , y + 1, safeNumber, stabilityGrid);
+            break;
+        case 3: // UP-RIGHT
+            return isOutOfBoundsOrEqualToSafeNumber(x + 1, y + 1, safeNumber, stabilityGrid);
+            break;
+        case 4: // RIGHT
+            return isOutOfBoundsOrEqualToSafeNumber(x + 1, y, safeNumber, stabilityGrid);
+            break;
+        case 5: // DOWN-RIGHT
+            return isOutOfBoundsOrEqualToSafeNumber(x + 1, y - 1, safeNumber, stabilityGrid);
+            break;
+        case 6: // DOWN
+            return isOutOfBoundsOrEqualToSafeNumber(x, y - 1, safeNumber, stabilityGrid);
+            break;
+        case 7: // DOWN-LEFT
+            return isOutOfBoundsOrEqualToSafeNumber(x - 1, y - 1, safeNumber, stabilityGrid);
+            break;
     }
+    return false;
+
+}
+
+int numberOfConsecutiveSafeDirectionsThatConstitutesSafe = 4;
+
+int getStabilityScoreForThisCell(int x, int y, int stabilityGrid[8][8], int playerMultiplier) {
+    if (isCorner(x, y)) {
+        return playerMultiplier * ROCK_SOLID;
+    }
+
+    int numberOfConsecutiveSafeDirections = 0;
+    for (int i = 0; i < 8; i++) {
+        if (isThisDirectionSafe(x, y, i, stabilityGrid, playerMultiplier * ROCK_SOLID)) {
+            numberOfConsecutiveSafeDirections++;
+        } else {
+            numberOfConsecutiveSafeDirections = 0;
+        }
+
+        if (numberOfConsecutiveSafeDirections >= numberOfConsecutiveSafeDirectionsThatConstitutesSafe || (i > 5 && numberOfConsecutiveSafeDirections == 0)) {
+            break;
+        }
+    }
+
+    if (numberOfConsecutiveSafeDirections >= numberOfConsecutiveSafeDirectionsThatConstitutesSafe) {
+        return playerMultiplier * ROCK_SOLID;
+    } else if (isEdgePiece(x, y)) {
+        return playerMultiplier * STABLE;
+    }
+
+    return 0;
 }
 
 double calculateStability(int myState[8][8]) {
-    int stabilityScore = 0;
-    
-    // Check corners
-    if (myState[0][0] == player)
-        stabilityScore += CORNER_BONUS;
-    if (myState[0][7] == player)
-        stabilityScore += CORNER_BONUS;
-    if (myState[7][0] == player)
-        stabilityScore += CORNER_BONUS;
-    if (myState[7][7] == player)
-        stabilityScore += CORNER_BONUS;
-    
-    // Check edges
-    for (int i = 1; i < 7; i++) {
-        if (myState[0][i] == player) { // check bottom row
-            if (i == 1) { // next to bottom left corner
-              if (myState[0][0] == player) {
-                stabilityScore += EDGE_NEXT_TO_CORNER_BONUS;
-              } else {
-                stabilityScore -= PENALTY_FOR_BEING_AT_RISK_OF_CONCEDING_CORNER;
-              }
-            } else if (i == 6) { // next to bottom right corner
-              if (myState[0][7] == player) {
-                stabilityScore += EDGE_NEXT_TO_CORNER_BONUS;
-              } else {
-                stabilityScore -= PENALTY_FOR_BEING_AT_RISK_OF_CONCEDING_CORNER;
-              }
-            } else {
-              stabilityScore += NORMAL_EDGE_BONUS;
-            }
+    if (round_to_play < 6) return 0.0;
+    int stabilityGrid[8][8]; 
+
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            stabilityGrid[i][j] = 0;
         }
-        if (myState[7][i] == player) { // check top row
-            if (i == 1) { // next to top left corner
-              if (myState[7][0] == player) {
-                stabilityScore += EDGE_NEXT_TO_CORNER_BONUS;
-              } else {
-                stabilityScore -= PENALTY_FOR_BEING_AT_RISK_OF_CONCEDING_CORNER;
-              }
-            } else if (i == 6) { // next to top right corner
-              if (myState[7][7] == player) {
-                stabilityScore += EDGE_NEXT_TO_CORNER_BONUS;
-              } else {
-                stabilityScore -= PENALTY_FOR_BEING_AT_RISK_OF_CONCEDING_CORNER;
-              }
-            } else {
-              stabilityScore += NORMAL_EDGE_BONUS;
-            }
-        }
-        if (myState[i][0] == player) { // check left column
-            if (i == 1) { // on top of bottom left corner
-              if (myState[0][0] == player) {
-                stabilityScore += EDGE_NEXT_TO_CORNER_BONUS;
-              } else {
-                stabilityScore -= PENALTY_FOR_BEING_AT_RISK_OF_CONCEDING_CORNER;
-              }
-            } else if (i == 6) { // next to top left corner
-              if (myState[7][0] == player) {
-                stabilityScore += EDGE_NEXT_TO_CORNER_BONUS;
-              } else {
-                stabilityScore -= PENALTY_FOR_BEING_AT_RISK_OF_CONCEDING_CORNER;
-              }
-            } else {
-              stabilityScore += NORMAL_EDGE_BONUS;
-            }
-        }
-        if (myState[i][7] == player) { // check right column
-            if (i == 1) { // on top of bottom right corner
-              if (myState[0][7] == player) {
-                stabilityScore += EDGE_NEXT_TO_CORNER_BONUS;
-              } else {
-                stabilityScore -= PENALTY_FOR_BEING_AT_RISK_OF_CONCEDING_CORNER;
-              }
-            } else if (i == 6) { // under top right corner
-              if (myState[7][7] == player) {
-                stabilityScore += EDGE_NEXT_TO_CORNER_BONUS;
-              } else {
-                stabilityScore -= PENALTY_FOR_BEING_AT_RISK_OF_CONCEDING_CORNER;
-              }
-            } else {
-              stabilityScore += NORMAL_EDGE_BONUS;
-            }
-        }
-        
     }
-    
-    return stabilityScore;
+
+    queue<tuple<int, int>> traversalQueue = createTraversalQueue(myState);
+    int x, y;
+    tuple<int, int> position;
+    int numPieces = 0;
+    int totalScore = 0;
+    int tempScore = 0;
+    while (!traversalQueue.empty()) {
+        position = traversalQueue.front();
+        traversalQueue.pop();
+        x = get<0>(position);
+        y = get<1>(position);
+
+        if (myState[x][y] == 0) {
+            stabilityGrid[x][y] = 0;
+            continue;
+        } else {
+            numPieces += 1;
+            tempScore = getStabilityScoreForThisCell(x, y, stabilityGrid, myState[x][y] == player ? 1 : -1);
+            stabilityGrid[x][y] = tempScore;
+            totalScore += tempScore;
+        }
+    }
+
+    cout << endl << "Total Score is: " << totalScore << ", Stability Grid: " << endl;
+    printState(stabilityGrid);
+
+    return normalizeScore(totalScore, -(numPieces * ROCK_SOLID), numPieces * ROCK_SOLID);
 }
 
 
@@ -574,7 +725,10 @@ double evaluationForThisState(int myState[8][8], int depth) {
     double coinParity = calculateCoinParity(myState);
     double mobilityScore = calculateMobility(myState, depth);
     double cornerScore = calculateCornerAdvantage(myState);
+    cout << endl << "Getting stability score for the following state: " << endl;
+    printState(myState);
     double stabilityScore = calculateStability(myState);
+    cout << "Stability score is: " << stabilityScore << endl;
 
     double score = coinParity + mobilityScore + stabilityScore + cornerScore;
     // cout << "Current score for the following state is: " << score << endl;
