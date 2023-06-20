@@ -42,6 +42,7 @@ int CORNER_BONUS = 5;
 int PENALTY_FOR_BEING_AT_RISK_OF_CONCEDING_CORNER = 10;
 int NORMAL_EDGE_BONUS = 2;
 int EDGE_NEXT_TO_CORNER_BONUS = 3;
+double MAX_LEGAL_MOVES_POSSIBLE = 28.0;
 int adjustedDepthLimit = 5;
 int movesLeft = 31; // just to be safe
 
@@ -411,23 +412,43 @@ void setAdjustedDepthBasedOnTimeLeftAndAvailableAmountOfMoves(int numValidMoves)
     cout << "and a depth of " << adjustedDepthLimit << ", it took ";
 }
 
-int calculateCoinParity(int myState[8][8]){
-    int myCoins = 0;
-    int oppCoins = 0;
+double normalizeScore(int score, int minValue, int maxValue) {
+    double normalizedScore;
+    if (score < minValue) return -1.0;
+    if (score > maxValue) return 1.0;
+
+    // Check if the range crosses zero
+    if (minValue < 0 && maxValue > 0) {
+        normalizedScore = static_cast<double>(score) / std::max(abs(minValue), maxValue);
+    } else {
+        normalizedScore = (2.0 * (score - minValue) / (maxValue - minValue)) - 1.0;
+    }
+
+    return normalizedScore;
+}
+
+
+double calculateCoinParity(int myState[8][8]){
+    double myCoins = 0.0;
+    double oppCoins = 0.0;
     for (int i = 0; i < 8; i++) {
         for (int j = 0; j < 8; j++) {
             if (myState[i][j] == player) {
-                myCoins += 1;
+                myCoins += 1.0;
             }
             else if (myState[i][j] == opponent) {
-                oppCoins += 1;
+                oppCoins += 1.0;
             }
         }
     }
-    return 100 * (myCoins - oppCoins) / (myCoins + oppCoins);
+    double totalCoins = myCoins + oppCoins;
+    double score = myCoins - oppCoins;
+
+    // Normalize the score between -1 and 1
+    return normalizeScore(score, -totalCoins, totalCoins);
 }
 
-int calculateMobility(int myState[8][8], int depth = 1) {
+double calculateMobility(int myState[8][8], int depth = 1) {
     int myValidMoves[64];
     int myNumValidMoves;
     getValidMoves(round_to_play + depth, myState, myValidMoves, myNumValidMoves, player);
@@ -435,14 +456,13 @@ int calculateMobility(int myState[8][8], int depth = 1) {
     int oppNumValidMoves;
     getValidMoves(round_to_play + depth, myState, oppValidMoves, oppNumValidMoves, opponent);
 
-    if ( myNumValidMoves + oppNumValidMoves != 0) {
-      return 100 * (myNumValidMoves - oppNumValidMoves) / (myNumValidMoves + oppNumValidMoves);
-    } else {
-      return 0;
-    }
+    int score = myNumValidMoves - oppNumValidMoves;
+    // decent equation for estimating the max number of legal moves available for one player based on round_to_play
+    double maxLegalMoves = ((-27.0 / 1135.0) * pow((round_to_play - 30.5), 2)) + 26.0;
+    return normalizeScore(score, -maxLegalMoves, maxLegalMoves);
 }
 
-int calculateCornerAdvantage(int myState[8][8]) {
+double calculateCornerAdvantage(int myState[8][8]) {
   int myCorners, oppCorners = 0;
 	if(myState[0][0] == player) myCorners++;
 	else if(myState[0][0] == opponent) oppCorners++;
@@ -460,7 +480,7 @@ int calculateCornerAdvantage(int myState[8][8]) {
     }
 }
 
-int calculateStability(int myState[8][8]) {
+double calculateStability(int myState[8][8]) {
     int stabilityScore = 0;
     
     // Check corners
@@ -550,18 +570,17 @@ int calculateStability(int myState[8][8]) {
 }
 
 
-int evaluationForThisState(int myState[8][8], int depth) {
-    int coinParity = calculateCoinParity(myState);
-    int mobilityScore = calculateMobility(myState, depth);
-    int cornerScore = calculateCornerAdvantage(myState);
-    int stabilityScore = calculateStability(myState);
+double evaluationForThisState(int myState[8][8], int depth) {
+    double coinParity = calculateCoinParity(myState);
+    double mobilityScore = calculateMobility(myState, depth);
+    double cornerScore = calculateCornerAdvantage(myState);
+    double stabilityScore = calculateStability(myState);
 
-    int score = 2 * coinParity + 2 * mobilityScore + 5 * stabilityScore + 2 * cornerScore;
+    double score = coinParity + mobilityScore + stabilityScore + cornerScore;
     // cout << "Current score for the following state is: " << score << endl;
     // printState(myState);
     // cout << endl << endl;
     // sleep(10);
-
     return score;
 }
 
