@@ -13,7 +13,7 @@
 #include <chrono>
 #include <tuple>
 #include <queue>
-
+#include <algorithm>
 
 using namespace std;
 
@@ -417,7 +417,7 @@ double normalizeScore(int score, int minValue, int maxValue) {
 
     // Check if the range crosses zero
     if (minValue < 0 && maxValue > 0) {
-        normalizedScore = static_cast<double>(score) / std::max(abs(minValue), maxValue);
+        normalizedScore = static_cast<double>(score) / max(abs(minValue), maxValue);
     } else {
         normalizedScore = (2.0 * (score - minValue) / (maxValue - minValue)) - 1.0;
     }
@@ -475,114 +475,40 @@ double calculateCornerAdvantage(int myState[8][8]) {
     return normalizeScore(myCorners - oppCorners, -4.0, 4.0);
 }
 
+// queue<tuple<int, int>> createTupleQueue(int array[8][8]) {
+//     vector<pair<int, pair<int, int>>> valueCoordinates;
+
+//     // Store values and corresponding coordinates in the vector
+//     for (int i = 0; i < 8; ++i) {
+//         for (int j = 0; j < 8; ++j) {
+//             valueCoordinates.push_back(make_pair(array[i][j], make_pair(i, j)));
+//         }
+//     }
+
+//     // Sort the vector based on values in ascending order
+//     sort(valueCoordinates.begin(), valueCoordinates.end(),
+//               [](const auto& lhs, const auto& rhs) { return lhs.first < rhs.first; });
+
+//     // Create a queue of tuples from the sorted vector
+//     queue<tuple<int, int>> tupleQueue;
+//     for (const auto& valueCoordinate : valueCoordinates) {
+//         tupleQueue.push(make_tuple(valueCoordinate.second.first, valueCoordinate.second.second));
+//     }
+
+//     return tupleQueue;
+// }
+
+
 queue<tuple<int, int>> createTraversalQueue(int myState[8][8]) {
     queue<tuple<int, int>> traversalQueue;
-    int stabilityGrid[8][8];
 
-    // Add the four corners
-    traversalQueue.push(make_tuple(0, 0));
-    traversalQueue.push(make_tuple(0, 1));
-    traversalQueue.push(make_tuple(0, 2));
-    traversalQueue.push(make_tuple(0, 3));
-
-    traversalQueue.push(make_tuple(0, 7));
-    traversalQueue.push(make_tuple(0, 6));
-    traversalQueue.push(make_tuple(0, 5));
-    traversalQueue.push(make_tuple(0, 4));
-
-    traversalQueue.push(make_tuple(7, 0));
-    traversalQueue.push(make_tuple(7, 1));
-    traversalQueue.push(make_tuple(7, 2));
-    traversalQueue.push(make_tuple(7, 3));
-
-    traversalQueue.push(make_tuple(7, 7));
-    traversalQueue.push(make_tuple(7, 6));
-    traversalQueue.push(make_tuple(7, 5));
-    traversalQueue.push(make_tuple(7, 4));
-
-    // =================================================================
-
-    traversalQueue.push(make_tuple(1, 0));
-    traversalQueue.push(make_tuple(2, 0));
-    traversalQueue.push(make_tuple(3, 0));
-
-    traversalQueue.push(make_tuple(6, 0));
-    traversalQueue.push(make_tuple(5, 0));
-    traversalQueue.push(make_tuple(4, 0));
-
-    traversalQueue.push(make_tuple(1, 7));
-    traversalQueue.push(make_tuple(2, 7));
-    traversalQueue.push(make_tuple(3, 7));
-
-    traversalQueue.push(make_tuple(6, 7));
-    traversalQueue.push(make_tuple(5, 7));
-    traversalQueue.push(make_tuple(4, 7));
-
-    // =================================================================
-
-    traversalQueue.push(make_tuple(1, 1));
-    traversalQueue.push(make_tuple(1, 2));
-    traversalQueue.push(make_tuple(1, 3));
-
-    traversalQueue.push(make_tuple(1, 6));
-    traversalQueue.push(make_tuple(1, 5));
-    traversalQueue.push(make_tuple(1, 4));
-
-    traversalQueue.push(make_tuple(6, 1));
-    traversalQueue.push(make_tuple(6, 2));
-    traversalQueue.push(make_tuple(6, 3));
-
-    traversalQueue.push(make_tuple(6, 6));
-    traversalQueue.push(make_tuple(6, 5));
-    traversalQueue.push(make_tuple(6, 4));
-
-    // =================================================================
-
-    traversalQueue.push(make_tuple(2, 1));
-    traversalQueue.push(make_tuple(3, 1));
-
-    traversalQueue.push(make_tuple(5, 1));
-    traversalQueue.push(make_tuple(4, 1));
-
-    traversalQueue.push(make_tuple(2, 6));
-    traversalQueue.push(make_tuple(3, 6));
-
-    traversalQueue.push(make_tuple(5, 6));
-    traversalQueue.push(make_tuple(4, 6));
-
-    // =================================================================
-
-    traversalQueue.push(make_tuple(2, 2));
-    traversalQueue.push(make_tuple(2, 3));
-
-    traversalQueue.push(make_tuple(2, 5));
-    traversalQueue.push(make_tuple(2, 4));
-
-    traversalQueue.push(make_tuple(5, 2));
-    traversalQueue.push(make_tuple(5, 3));
-
-    traversalQueue.push(make_tuple(5, 5));
-    traversalQueue.push(make_tuple(5, 4));
-
-    // =================================================================
-
-    traversalQueue.push(make_tuple(3, 2));
-
-    traversalQueue.push(make_tuple(4, 2));
-
-    traversalQueue.push(make_tuple(3, 5));
-
-    traversalQueue.push(make_tuple(4, 5));
-
-    // =================================================================
-
-    traversalQueue.push(make_tuple(3, 3));
-
-    traversalQueue.push(make_tuple(4, 3));
-
-    traversalQueue.push(make_tuple(3, 4));
-
-    traversalQueue.push(make_tuple(4, 4));
+    for (int i = 0; i < 8; i++) {
+        traversalQueue.push(make_tuple(i, i));
+        for (int j = i + 1; j < 8; j++) {
+            traversalQueue.push(make_tuple(i, j));
+            traversalQueue.push(make_tuple(j, i));
+        }
+    }
 
 
     // int grid[8][8];
@@ -654,6 +580,14 @@ bool isThisDirectionSafe(int x, int y, int direction, int stabilityGrid[8][8], i
 
 int numberOfConsecutiveSafeDirectionsThatConstitutesSafe = 4;
 
+void rotateArray(int original[8][8], int rotated[8][8]) {
+    for (int i = 0; i < 8; ++i) {
+        for (int j = 0; j < 8; ++j) {
+            rotated[j][7 - i] = original[i][j];
+        }
+    }
+}
+
 int getStabilityScoreForThisCell(int x, int y, int stabilityGrid[8][8], int playerMultiplier) {
     if (isCorner(x, y)) {
         return playerMultiplier * ROCK_SOLID;
@@ -681,6 +615,37 @@ int getStabilityScoreForThisCell(int x, int y, int stabilityGrid[8][8], int play
     return 0;
 }
 
+void traverseQueueUntilWeStopSeeingStableCoins (queue<tuple<int, int>> queue, int stabilityGrid[8][8], int state[8][8], int& numPieces, int& totalScore) {
+    int x, y;
+    tuple<int, int> position;
+
+    int tempScore = 0;
+    int cellsWeHaventUpdated = 0;
+    while (!queue.empty() && cellsWeHaventUpdated < 15) {
+        position = queue.front();
+        queue.pop();
+        x = get<0>(position);
+        y = get<1>(position);
+
+        if (state[x][y] == 0) {
+            stabilityGrid[x][y] = 0;
+            cellsWeHaventUpdated += 1;
+            continue;
+        } else if (stabilityGrid[x][y] == ROCK_SOLID) { 
+            numPieces += 1;
+            cellsWeHaventUpdated += 1;
+            continue;
+        }
+        else {
+            numPieces += 1;
+            tempScore = getStabilityScoreForThisCell(x, y, stabilityGrid, state[x][y] == player ? 1 : -1);
+            stabilityGrid[x][y] = tempScore;
+            totalScore += tempScore;
+            cellsWeHaventUpdated = 0;
+        }
+    }
+}
+
 double calculateStability(int myState[8][8]) {
     if (round_to_play < 6) return 0.0;
     int stabilityGrid[8][8]; 
@@ -691,31 +656,37 @@ double calculateStability(int myState[8][8]) {
         }
     }
 
-    queue<tuple<int, int>> traversalQueue = createTraversalQueue(myState);
-    int x, y;
-    tuple<int, int> position;
-    int numPieces = 0;
-    int totalScore = 0;
-    int tempScore = 0;
-    while (!traversalQueue.empty()) {
-        position = traversalQueue.front();
-        traversalQueue.pop();
-        x = get<0>(position);
-        y = get<1>(position);
-
-        if (myState[x][y] == 0) {
-            stabilityGrid[x][y] = 0;
-            continue;
-        } else {
-            numPieces += 1;
-            tempScore = getStabilityScoreForThisCell(x, y, stabilityGrid, myState[x][y] == player ? 1 : -1);
-            stabilityGrid[x][y] = tempScore;
-            totalScore += tempScore;
+    int traversalGrid[8][8];
+    int counter = 0;
+    for (int i = 0; i < 8; i++) {
+        traversalGrid[i][i] = counter++;
+        for (int j = i + 1; j < 8; j++) {
+            traversalGrid[i][j] = counter++;
+            traversalGrid[j][i] = counter++;
         }
     }
 
-    cout << endl << "Total Score is: " << totalScore << ", Stability Grid: " << endl;
-    printState(stabilityGrid);
+    queue<tuple<int, int>> queueOne = createTraversalQueue(traversalGrid);
+    int rotated[8][8];
+    rotateArray(traversalGrid, rotated);
+    queue<tuple<int, int>> queueTwo = createTraversalQueue(rotated);
+    int rotatedAgain[8][8];
+    rotateArray(rotated, rotatedAgain);
+    queue<tuple<int, int>> queueThree = createTraversalQueue(rotatedAgain);
+    int rotatedAgainAgain[8][8];
+    rotateArray(rotatedAgain, rotatedAgainAgain);
+    queue<tuple<int, int>> queueFour = createTraversalQueue(rotatedAgainAgain);
+
+    int numPieces = 0;
+    int totalScore = 0;
+
+    traverseQueueUntilWeStopSeeingStableCoins(queueOne, stabilityGrid, myState, numPieces, totalScore);
+    traverseQueueUntilWeStopSeeingStableCoins(queueTwo, stabilityGrid, myState, numPieces, totalScore);
+    traverseQueueUntilWeStopSeeingStableCoins(queueThree, stabilityGrid, myState, numPieces, totalScore);
+    traverseQueueUntilWeStopSeeingStableCoins(queueFour, stabilityGrid, myState, numPieces, totalScore);
+
+    // cout << endl << "Total Score is: " << totalScore << ", Stability Grid: " << endl;
+    // printState(stabilityGrid);
 
     return normalizeScore(totalScore, -(numPieces * ROCK_SOLID), numPieces * ROCK_SOLID);
 }
@@ -725,12 +696,17 @@ double evaluationForThisState(int myState[8][8], int depth) {
     double coinParity = calculateCoinParity(myState);
     double mobilityScore = calculateMobility(myState, depth);
     double cornerScore = calculateCornerAdvantage(myState);
-    cout << endl << "Getting stability score for the following state: " << endl;
-    printState(myState);
+    // cout << endl << "Getting stability score for the following state: " << endl;
+    // printState(myState);
     double stabilityScore = calculateStability(myState);
-    cout << "Stability score is: " << stabilityScore << endl;
+    // cout << "Stability score is: " << stabilityScore << endl;
 
-    double score = coinParity + mobilityScore + stabilityScore + cornerScore;
+    double score;
+    if (round_to_play > 54) {
+        score = 10.0 * coinParity + 1.0 * mobilityScore + 1.0 * stabilityScore + 1.0 * cornerScore;
+    } else {
+        score = 1.0 * coinParity + 1.5 * mobilityScore + 5 * stabilityScore + 10 * cornerScore;
+    }
     // cout << "Current score for the following state is: " << score << endl;
     // printState(myState);
     // cout << endl << endl;
@@ -738,6 +714,7 @@ double evaluationForThisState(int myState[8][8], int depth) {
     return score;
 }
 
+// /Users/jaxsonruff/reversi-470/reversi/Jaxson.cpp
 
 int minimax(int currentState[8][8], int depth, int alpha, int beta, int maximizingPlayer, int (&scoresByIndex)[15]) {
     if (depth >= adjustedDepthLimit) { // Hit end of depth. Returning
